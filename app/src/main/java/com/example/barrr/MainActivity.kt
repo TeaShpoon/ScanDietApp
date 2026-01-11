@@ -19,11 +19,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -115,30 +118,53 @@ fun ScannerScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraController = remember { LifecycleCameraController(context) }
+    var scannedCode by remember { mutableStateOf<String?>(null) }
 
-    val options = BarcodeScannerOptions.Builder()
-        .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
-        .build()
-    val barcodeScanner = BarcodeScanning.getClient(options)
-
-    cameraController.setImageAnalysisAnalyzer(
-        ContextCompat.getMainExecutor(context),
-        MlKitAnalyzer(
-            listOf(barcodeScanner),
-            COORDINATE_SYSTEM_VIEW_REFERENCED,
-            ContextCompat.getMainExecutor(context)
-        ) { result: MlKitAnalyzer.Result ->
-            val barcodeResults = result.getValue(barcodeScanner)
-            if (barcodeResults != null && barcodeResults.isNotEmpty()) {
-                // for now, just log it
-                barcodeResults.forEach { barcode ->
-                    barcode.rawValue?.let {
-                        Log.d("ScannerScreen", "Barcode raw value: $it")
-                    }
+    if (scannedCode != null) {
+        AlertDialog(
+            onDismissRequest = {
+                scannedCode = null
+            },
+            title = { Text("Barcode Scanned") },
+            text = { Text(scannedCode!!) },
+            confirmButton = {
+                Button(onClick = {
+                    scannedCode = null
+                }) {
+                    Text("OK")
                 }
             }
+        )
+    }
+
+    val options = remember {
+        BarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
+            .build()
+    }
+    val barcodeScanner = remember { BarcodeScanning.getClient(options) }
+
+    LaunchedEffect(scannedCode) {
+        if (scannedCode == null) {
+            cameraController.setImageAnalysisAnalyzer(
+                ContextCompat.getMainExecutor(context),
+                MlKitAnalyzer(
+                    listOf(barcodeScanner),
+                    COORDINATE_SYSTEM_VIEW_REFERENCED,
+                    ContextCompat.getMainExecutor(context)
+                ) { result: MlKitAnalyzer.Result ->
+                    if (scannedCode == null) {
+                        result.getValue(barcodeScanner)?.firstOrNull()?.rawValue?.let {
+                            scannedCode = it
+                            Log.d("ScannerScreen", "Barcode raw value: $it")
+                        }
+                    }
+                }
+            )
+        } else {
+            cameraController.clearImageAnalysisAnalyzer()
         }
-    )
+    }
 
     cameraController.bindToLifecycle(lifecycleOwner)
 
