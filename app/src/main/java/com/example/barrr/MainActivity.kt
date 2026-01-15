@@ -27,15 +27,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +84,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun BarrrApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.DIETARY) }
+    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -100,7 +98,12 @@ fun BarrrApp() {
                     },
                     label = { Text(it.label) },
                     selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    onClick = { 
+                        currentDestination = it
+                        if (it != AppDestinations.SCANNER) {
+                            scannedBarcode = null
+                        }
+                    }
                 )
             }
         }
@@ -108,8 +111,17 @@ fun BarrrApp() {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
                 AppDestinations.DIETARY -> DietaryNeedsScreen(modifier = Modifier.padding(innerPadding))
-                AppDestinations.SCANNER -> ScannerScreen(modifier = Modifier.padding(innerPadding))
-                AppDestinations.PROFILE -> Greeting("Profile", modifier = Modifier.padding(innerPadding))
+                AppDestinations.SCANNER -> ScannerScreen(modifier = Modifier.padding(innerPadding)) {
+                    scannedBarcode = it
+                    currentDestination = AppDestinations.PROFILE
+                }
+                AppDestinations.PROFILE -> {
+                    if (scannedBarcode != null) {
+                        ProfileScreen(barcode = scannedBarcode!!, modifier = Modifier.padding(innerPadding))
+                    } else {
+                        Greeting("Profile", modifier = Modifier.padding(innerPadding))
+                    }
+                }
             }
         }
     }
@@ -181,28 +193,10 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ScannerScreen(modifier: Modifier = Modifier) {
+fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraController = remember { LifecycleCameraController(context) }
-    var scannedCode by remember { mutableStateOf<String?>(null) }
-
-    if (scannedCode != null) {
-        AlertDialog(
-            onDismissRequest = {
-                scannedCode = null
-            },
-            title = { Text("Barcode Scanned") },
-            text = { Text(scannedCode!!) },
-            confirmButton = {
-                Button(onClick = {
-                    scannedCode = null
-                }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
 
     val options = remember {
         BarcodeScannerOptions.Builder()
@@ -211,27 +205,19 @@ fun ScannerScreen(modifier: Modifier = Modifier) {
     }
     val barcodeScanner = remember { BarcodeScanning.getClient(options) }
 
-    LaunchedEffect(scannedCode) {
-        if (scannedCode == null) {
-            cameraController.setImageAnalysisAnalyzer(
-                ContextCompat.getMainExecutor(context),
-                MlKitAnalyzer(
-                    listOf(barcodeScanner),
-                    COORDINATE_SYSTEM_VIEW_REFERENCED,
-                    ContextCompat.getMainExecutor(context)
-                ) { result: MlKitAnalyzer.Result ->
-                    if (scannedCode == null) {
-                        result.getValue(barcodeScanner)?.firstOrNull()?.rawValue?.let {
-                            scannedCode = it
-                            Log.d("ScannerScreen", "Barcode raw value: $it")
-                        }
-                    }
+    cameraController.setImageAnalysisAnalyzer(
+        ContextCompat.getMainExecutor(context),
+        MlKitAnalyzer(
+            listOf(barcodeScanner),
+            COORDINATE_SYSTEM_VIEW_REFERENCED,
+            ContextCompat.getMainExecutor(context)
+        ) { result: MlKitAnalyzer.Result ->
+                result.getValue(barcodeScanner)?.firstOrNull()?.rawValue?.let {
+                    onBarcodeScanned(it)
+                    Log.d("ScannerScreen", "Barcode raw value: $it")
                 }
-            )
-        } else {
-            cameraController.clearImageAnalysisAnalyzer()
         }
-    }
+    )
 
     cameraController.bindToLifecycle(lifecycleOwner)
 
@@ -244,6 +230,13 @@ fun ScannerScreen(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxSize()
         )
+    }
+}
+
+@Composable
+fun ProfileScreen(barcode: String, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text = "Scanned Barcode: $barcode")
     }
 }
 
