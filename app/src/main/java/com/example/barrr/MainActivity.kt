@@ -1,6 +1,7 @@
 package com.example.barrr
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -12,15 +13,23 @@ import androidx.camera.mlkit.vision.MlKitAnalyzer
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,11 +41,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -75,11 +86,11 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun BarrrApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.DIETARY) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach {
+            AppDestinations.entries.forEach { 
                 item(
                     icon = {
                         Icon(
@@ -96,7 +107,7 @@ fun BarrrApp() {
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
-                AppDestinations.HOME -> Greeting(name = "Android", modifier = Modifier.padding(innerPadding))
+                AppDestinations.DIETARY -> DietaryNeedsScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.SCANNER -> ScannerScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.PROFILE -> Greeting("Profile", modifier = Modifier.padding(innerPadding))
             }
@@ -108,9 +119,65 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    HOME("Home", Icons.Filled.Home),
+    DIETARY("Dietary", Icons.Filled.Checklist),
     SCANNER("Scanner", Icons.Filled.QrCodeScanner),
     PROFILE("Profile", Icons.Filled.AccountBox),
+}
+
+data class DietaryNeed(val name: String, val isChecked: Boolean)
+
+@Composable
+fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE)
+    }
+    val allNeeds = remember {
+        listOf(
+            "Vegetarian",
+            "Vegan",
+            "Gluten-Free",
+            "Dairy-Free",
+            "Nut-Free"
+        )
+    }
+
+    var dietaryNeeds by remember {
+        val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
+        mutableStateOf(allNeeds.map { DietaryNeed(it, savedNeeds.contains(it)) })
+    }
+
+    fun updateNeed(need: DietaryNeed, isChecked: Boolean) {
+        val updatedNeeds = dietaryNeeds.map {
+            if (it.name == need.name) {
+                it.copy(isChecked = isChecked)
+            } else {
+                it
+            }
+        }
+        dietaryNeeds = updatedNeeds
+        val newSavedNeeds = updatedNeeds.filter { it.isChecked }.map { it.name }.toSet()
+        prefs.edit().putStringSet("dietary_needs", newSavedNeeds).apply()
+    }
+
+    LazyColumn(modifier = modifier.padding(16.dp)) {
+        items(dietaryNeeds) { need ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { updateNeed(need, !need.isChecked) }
+                    .padding(vertical = 8.dp)
+            ) {
+                Checkbox(
+                    checked = need.isChecked,
+                    onCheckedChange = { isChecked -> updateNeed(need, isChecked) }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(text = need.name)
+            }
+        }
+    }
 }
 
 @Composable
