@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -100,9 +101,6 @@ fun BarrrApp() {
                     selected = it == currentDestination,
                     onClick = { 
                         currentDestination = it
-                        if (it != AppDestinations.SCANNER) {
-                            scannedBarcode = null
-                        }
                     }
                 )
             }
@@ -113,13 +111,15 @@ fun BarrrApp() {
                 AppDestinations.DIETARY -> DietaryNeedsScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.SCANNER -> ScannerScreen(modifier = Modifier.padding(innerPadding)) {
                     scannedBarcode = it
-                    currentDestination = AppDestinations.PROFILE
+                    currentDestination = AppDestinations.INFO
                 }
-                AppDestinations.PROFILE -> {
+                AppDestinations.INFO -> {
                     if (scannedBarcode != null) {
-                        ProfileScreen(barcode = scannedBarcode!!, modifier = Modifier.padding(innerPadding))
+                        InfoScreen(barcode = scannedBarcode!!, modifier = Modifier.padding(innerPadding))
                     } else {
-                        Greeting("Profile", modifier = Modifier.padding(innerPadding))
+                        Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                            Text("Scan a barcode to see information here.")
+                        }
                     }
                 }
             }
@@ -133,7 +133,7 @@ enum class AppDestinations(
 ) {
     DIETARY("Dietary", Icons.Filled.Checklist),
     SCANNER("Scanner", Icons.Filled.QrCodeScanner),
-    PROFILE("Profile", Icons.Filled.AccountBox),
+    INFO("Info", Icons.Filled.Info),
 }
 
 data class DietaryNeed(val name: String, val isChecked: Boolean)
@@ -234,7 +234,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
 }
 
 @Composable
-fun ProfileScreen(barcode: String, modifier: Modifier = Modifier) {
+fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text = "Scanned Barcode: $barcode")
     }
