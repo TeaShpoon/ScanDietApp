@@ -20,10 +20,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Info
@@ -270,11 +273,17 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
         }
     }
 
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
         when {
             productInfo != null -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column {
                     Text(text = productInfo!!.name, style = MaterialTheme.typography.headlineLarge)
+                    Spacer(modifier = Modifier.height(16.dp))
                     val annotatedString = buildAnnotatedString {
                         append(productInfo!!.ingredients)
                         keywordsToHighlight.forEach { keyword ->
@@ -290,6 +299,7 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
                         }
                     }
                     Text(text = annotatedString)
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(text = barcode, style = MaterialTheme.typography.labelSmall)
                 }
             }
