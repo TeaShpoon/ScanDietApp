@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -59,11 +60,10 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
@@ -100,7 +100,7 @@ fun BarrrApp() {
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach { 
+            AppDestinations.entries.forEach {
                 item(
                     icon = {
                         Icon(
@@ -110,7 +110,7 @@ fun BarrrApp() {
                     },
                     label = { Text(it.label) },
                     selected = it == currentDestination,
-                    onClick = { 
+                    onClick = {
                         currentDestination = it
                     }
                 )
@@ -243,9 +243,13 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
     }
 }
 
+@Serializable
+data class ProductInfo(val name: String, val ingredients: String)
+
 @Composable
 fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
-    var responseText by remember { mutableStateOf("Loading...") }
+    var productInfo by remember { mutableStateOf<ProductInfo?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val keywordsToHighlight = remember {
@@ -255,43 +259,45 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(barcode) {
-        val client = HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json()
-            }
-        }
+        val client = HttpClient(CIO)
         try {
-            val response: HttpResponse = client.get("http://127.0.0.1:3000/$barcode")
-            responseText = response.bodyAsText()
+            val responseText = client.get("http://127.0.0.1:3000/$barcode").bodyAsText()
+            productInfo = Json.decodeFromString(responseText)
             client.close()
         } catch (e: Exception) {
-            responseText = "Error: ${e.message}"
+            error = "Error: ${e.message}"
             client.close()
         }
     }
 
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "Scanned Barcode: $barcode")
-
-            if (responseText != "Loading..." && !responseText.startsWith("Error:")) {
-                val annotatedString = buildAnnotatedString {
-                    append(responseText)
-                    keywordsToHighlight.forEach { keyword ->
-                        var startIndex = responseText.indexOf(keyword, ignoreCase = true)
-                        while (startIndex != -1) {
-                            addStyle(
-                                style = SpanStyle(color = Color.Red),
-                                start = startIndex,
-                                end = startIndex + keyword.length
-                            )
-                            startIndex = responseText.indexOf(keyword, startIndex + 1, ignoreCase = true)
+        when {
+            productInfo != null -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = productInfo!!.name, style = MaterialTheme.typography.headlineLarge)
+                    val annotatedString = buildAnnotatedString {
+                        append(productInfo!!.ingredients)
+                        keywordsToHighlight.forEach { keyword ->
+                            var startIndex = productInfo!!.ingredients.indexOf(keyword, ignoreCase = true)
+                            while (startIndex != -1) {
+                                addStyle(
+                                    style = SpanStyle(color = Color.Red),
+                                    start = startIndex,
+                                    end = startIndex + keyword.length
+                                )
+                                startIndex = productInfo!!.ingredients.indexOf(keyword, startIndex + 1, ignoreCase = true)
+                            }
                         }
                     }
+                    Text(text = annotatedString)
+                    Text(text = barcode, style = MaterialTheme.typography.labelSmall)
                 }
-                Text(text = annotatedString)
-            } else {
-                 Text(text = responseText)
+            }
+            error != null -> {
+                Text(text = error!!)
+            }
+            else -> {
+                Text(text = "Loading...")
             }
         }
     }
