@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -43,8 +42,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
@@ -145,7 +147,15 @@ enum class AppDestinations(
     INFO("Info", Icons.Filled.Info),
 }
 
-data class DietaryNeed(val name: String, val isChecked: Boolean)
+data class DietaryNeed(val name: String, val isChecked: Boolean, val keywords: List<String>)
+
+val allNeeds = listOf(
+    DietaryNeed("Vegetarian", false, listOf("meat", "chicken", "beef", "pork", "fish", "gelatin")),
+    DietaryNeed("Vegan", false, listOf("meat", "chicken", "beef", "pork", "fish", "gelatin", "dairy", "milk", "lactose", "eggs", "honey")),
+    DietaryNeed("Gluten-Free", false, listOf("gluten", "wheat", "barley", "rye")),
+    DietaryNeed("Dairy-Free", false, listOf("dairy", "milk", "lactose", "cheese", "butter", "yogurt")),
+    DietaryNeed("Nut-Free", false, listOf("nuts", "peanuts", "almonds", "cashews", "walnuts"))
+)
 
 @Composable
 fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
@@ -153,19 +163,10 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
     val prefs = remember {
         context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE)
     }
-    val allNeeds = remember {
-        listOf(
-            "Vegetarian",
-            "Vegan",
-            "Gluten-Free",
-            "Dairy-Free",
-            "Nut-Free"
-        )
-    }
 
     var dietaryNeeds by remember {
         val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
-        mutableStateOf(allNeeds.map { DietaryNeed(it, savedNeeds.contains(it)) })
+        mutableStateOf(allNeeds.map { it.copy(isChecked = savedNeeds.contains(it.name)) })
     }
 
     fun updateNeed(need: DietaryNeed, isChecked: Boolean) {
@@ -245,6 +246,13 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
 @Composable
 fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
     var responseText by remember { mutableStateOf("Loading...") }
+    val context = LocalContext.current
+
+    val keywordsToHighlight = remember {
+        val prefs = context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE)
+        val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
+        allNeeds.filter { savedNeeds.contains(it.name) }.flatMap { it.keywords }.distinct()
+    }
 
     LaunchedEffect(barcode) {
         val client = HttpClient(CIO) {
@@ -265,7 +273,26 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = "Scanned Barcode: $barcode")
-            Text(text = responseText)
+
+            if (responseText != "Loading..." && !responseText.startsWith("Error:")) {
+                val annotatedString = buildAnnotatedString {
+                    append(responseText)
+                    keywordsToHighlight.forEach { keyword ->
+                        var startIndex = responseText.indexOf(keyword, ignoreCase = true)
+                        while (startIndex != -1) {
+                            addStyle(
+                                style = SpanStyle(color = Color.Red),
+                                start = startIndex,
+                                end = startIndex + keyword.length
+                            )
+                            startIndex = responseText.indexOf(keyword, startIndex + 1, ignoreCase = true)
+                        }
+                    }
+                }
+                Text(text = annotatedString)
+            } else {
+                 Text(text = responseText)
+            }
         }
     }
 }
