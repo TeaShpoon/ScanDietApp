@@ -15,6 +15,7 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +55,13 @@ import com.example.barrr.ui.theme.BarrrTheme
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.serialization.kotlinx.json.json
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
@@ -235,8 +244,29 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
 
 @Composable
 fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
+    var responseText by remember { mutableStateOf("Loading...") }
+
+    LaunchedEffect(barcode) {
+        val client = HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        try {
+            val response: HttpResponse = client.get("http://127.0.0.1:3000/$barcode")
+            responseText = response.bodyAsText()
+            client.close()
+        } catch (e: Exception) {
+            responseText = "Error: ${e.message}"
+            client.close()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Scanned Barcode: $barcode")
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "Scanned Barcode: $barcode")
+            Text(text = responseText)
+        }
     }
 }
 
