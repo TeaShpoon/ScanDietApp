@@ -150,62 +150,22 @@ enum class AppDestinations(
     INFO("Info", Icons.Filled.Info),
 }
 
-data class DietaryNeed(val name: String, val isChecked: Boolean, val keywords: List<String>)
+data class DietaryNeed(val name: String, val isChecked: Boolean, val labels: List<String>)
 
 val allNeeds = listOf(
-    DietaryNeed("Непереносимость глютена", false, listOf(
-        "глютен", "глютена", "глютену", "глютеном", "глютене", "глютеновый",
-        "пшеница", "пшеницы", "пшенице", "пшеницу", "пшеницей", "пшеничный", "пшеничная", "пшеничное", "пшеничные", "пшеничного", "пшеничному", "пшеничным", "пшеничном", "пшеничную", "пшеничной",
-        "ячмень", "ячменя", "ячменю", "ячменем", "ячмене", "ячменный", "ячменная", "ячменное", "ячменные", "ячменного", "ячменному", "ячменным", "ячменном", "ячменную", "ячменной",
-        "рожь", "ржи", "рожью", "ржаной", "ржаная", "ржаное", "ржаные", "ржаного", "ржаному", "ржаным", "ржаном", "ржаную", "ржаной"
-    )),
-    DietaryNeed("Непереносимость лактозы", false, listOf(
-        "молоко", "молока", "молоку", "молоком", "молоке", "молочный", "молочная", "молочное", "молочные", "молочного", "молочному", "молочным", "молочном", "молочную", "молочной", "молочные продукты",
-        "лактоза", "лактозы", "лактозе", "лактозу", "лактозой", "лактозный",
-        "сыр", "сыра", "сыру", "сыром", "сыре", "сырный", "сырная", "сырное", "сырные", "сырного", "сырному", "сырным", "сырном", "сырную", "сырной",
-        "масло", "масла", "маслу", "маслом", "масле", "масляный", "масляная", "масляное", "масляные",
-        "йогурт", "йогурта", "йогурту", "йогуртом", "йогурте", "йогуртовый", "йогуртовая", "йогуртовое", "йогуртовые"
-    )),
-    DietaryNeed("Аллергия на орехи", false, listOf(
-        "орех", "ореха", "ореху", "орехом", "орехе", "орехи", "орехов", "орехам", "орехами", "орехах", "ореховый", "ореховая", "ореховое", "ореховые",
-        "арахис", "арахиса", "арахису", "арахисом", "арахисе", "арахисовый",
-        "миндаль", "миндаля", "миндалю", "миндалем", "миндале", "миндальный",
-        "кешью",
-        "грецкий орех", "грецкого ореха", "грецкому ореху", "грецким орехом", "грецком орехе", "грецкие орехи"
-    )),
-    DietaryNeed("Аллергия на сою", false, listOf(
-        "соя", "сои", "сое", "сою", "соей", "соевый", "соевая", "соевое", "соевые", "соевого", "соевому", "соевым", "соевом", "соевую", "соевой",
-        "бобы", "бобов", "бобам", "бобами", "бобах", "бобовый",
-        "тофу"
-    )),
-    DietaryNeed("Аллергия на моллюсков", false, listOf(
-        "моллюск", "моллюска", "моллюску", "моллюском", "моллюске", "моллюски", "моллюсков", "моллюскам", "моллюсками", "моллюсках",
-        "креветка", "креветки", "креветок", "креветкам", "креветками", "креветках", "креветочный",
-        "краб", "краба", "крабу", "крабом", "крабе", "крабовый",
-        "лобстер", "лобстера", "лобстеру", "лобстером", "лобстере",
-        "устрица", "устрицы", "устриц", "устрицам", "устрицами", "устрицах", "устричный",
-        "мидия", "мидии", "мидий", "мидиям", "мидиями", "мидиях"
-    )),
-    DietaryNeed("Вегетарианство", false, listOf(
-        "мясо", "мяса", "мясу", "мясом", "мясе", "мясной", "мясная", "мясное", "мясные", "мясного", "мясному", "мясным", "мясном", "мясную", "мясною",
-        "курица", "курицы", "курице", "курицу", "курицей", "куриный", "куриная", "куриное", "куриные", "куриного", "куриному", "куриным", "курином", "куриную",
-        "говядина", "говядины", "говядине", "говядину", "говядиной", "говяжий", "говяжья", "говяжье", "говяжьи", "говяжьего", "говяжьему", "говяжьим", "говяжьем", "говяжью",
-        "свинина", "свинины", "свинине", "свинину", "свининой", "свиной", "свиная", "свиное", "свиные", "свиного", "свиному", "свиным", "свином", "свиную",
-        "рыба", "рыбы", "рыбе", "рыбу", "рыбой", "рыбный", "рыбная", "рыбное", "рыбные", "рыбного", "рыбному", "рыбным", "рыбном", "рыбную", "рыбной",
-        "желатин", "желатина", "желатину", "желатином", "желатине", "желатиновый", "желатиновая", "желатиновое", "желатиновые"
-    )),
-    DietaryNeed("Веганство", false, listOf(
-        "мясо", "мяса", "мясу", "мясом", "мясе", "мясной", "мясная", "мясное", "мясные", "мясного", "мясному", "мясным", "мясном", "мясной", "мясную", "мясною",
-        "курица", "курицы", "курице", "курицу", "курицей", "куриный", "куриная", "куриное", "куриные", "куриного", "куриному", "куриным", "курином", "куриную",
-        "говядина", "говядины", "говядине", "говядину", "говядиной", "говяжий", "говяжья", "говяжье", "говяжьи", "говяжьего", "говяжьему", "говяжьим", "говяжьем", "говяжью",
-        "свинина", "свинины", "свинине", "свинину", "свининой", "свиной", "свиная", "свиное", "свиные", "свиного", "свиному", "свиным", "свином", "свиную",
-        "рыба", "рыбы", "рыбе", "рыбу", "рыбой", "рыбный", "рыбная", "рыбное", "рыбные", "рыбного", "рыбному", "рыбным", "рыбном", "рыбную", "рыбной",
-        "желатин", "желатина", "желатину", "желатином", "желатине", "желатиновый", "желатиновая", "желатиновое", "желатиновые",
-        "молоко", "молока", "молоку", "молоком", "молоке", "молочный", "молочная", "молочное", "молочные", "молочного", "молочному", "молочным", "молочном", "молочную", "молочной", "молочные продукты",
-        "лактоза", "лактозы", "лактозе", "лактозу", "лактозой", "лактозный",
-        "яйцо", "яйца", "яиц", "яйцам", "яйцами", "яйцах", "яичный", "яичная", "яичное", "яичные", "яичного", "яичному", "яичным", "яичном", "яичную", "яичной",
-        "мед", "меда", "меду", "медом", "меде", "медовый", "медовая", "медовое", "медовые", "медового", "медовому", "медовым", "медовом", "медовую", "медовой"
-    ))
+    DietaryNeed("Непереносимость глютена", false, listOf("gluten")),
+    DietaryNeed("Непереносимость лактозы", false, listOf("lactose")),
+    DietaryNeed("Аллергия на орехи", false, listOf("tree_nut")),
+    DietaryNeed("Аллергия на арахис", false, listOf("peanut")),
+    DietaryNeed("Аллергия на сою", false, listOf("soy")),
+    DietaryNeed("Аллергия на моллюсков", false, listOf("shellfish")),
+    DietaryNeed("Аллергия на яйца", false, listOf("egg")),
+    DietaryNeed("Аллергия на рыбу", false, listOf("fish")),
+    DietaryNeed("Аллергия на кунжут", false, listOf("sesame")),
+    DietaryNeed("Вегетарианство", false, listOf("meat", "fish")),
+    DietaryNeed("Веганство", false, listOf("meat", "fish", "egg", "lactose")),
+    DietaryNeed("Ограничение сахара", false, listOf("sugar")),
+    DietaryNeed("Ограничение соли", false, listOf("sodium"))
 )
 
 @Composable
@@ -294,8 +254,17 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
     }
 }
 
+private val jsonConfig = Json {
+    ignoreUnknownKeys = true
+    coerceInputValues = true
+}
+
 @Serializable
-data class ProductInfo(val name: String, val ingredients: String)
+data class ProductInfo(
+    val name: String,
+    val ingredients: String,
+    val labels: Map<String, List<List<Int>>> = emptyMap()
+)
 
 @Composable
 fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
@@ -303,19 +272,22 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
-    val keywordsToHighlight = remember {
+    val labelsToHighlight = remember(barcode, productInfo) {
         val prefs = context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE)
         val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
-        allNeeds.filter { savedNeeds.contains(it.name) }.flatMap { it.keywords }.distinct()
+        allNeeds.filter { savedNeeds.contains(it.name) }.flatMap { it.labels }.toSet()
     }
 
     LaunchedEffect(barcode) {
         val client = HttpClient(CIO)
         try {
             val responseText = client.get("http://127.0.0.1:3000/$barcode").bodyAsText()
-            productInfo = Json.decodeFromString(responseText)
+            Log.d("InfoScreen", "Response: $responseText")
+            productInfo = jsonConfig.decodeFromString(responseText)
+            Log.d("InfoScreen", "Parsed labels: ${productInfo?.labels}")
             client.close()
         } catch (e: Exception) {
+            Log.e("InfoScreen", "Error fetching/parsing", e)
             error = "Error: ${e.message}"
             client.close()
         }
@@ -334,19 +306,46 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
                     Spacer(modifier = Modifier.height(16.dp))
                     val annotatedString = buildAnnotatedString {
                         append(productInfo!!.ingredients)
-                        keywordsToHighlight.forEach { keyword ->
-                            var startIndex = productInfo!!.ingredients.indexOf(keyword, ignoreCase = true)
-                            while (startIndex != -1) {
-                                addStyle(
-                                    style = SpanStyle(color = Color.Red),
-                                    start = startIndex,
-                                    end = startIndex + keyword.length
-                                )
-                                startIndex = productInfo!!.ingredients.indexOf(keyword, startIndex + 1, ignoreCase = true)
+                        productInfo!!.labels.forEach { (label, spans) ->
+                            if (labelsToHighlight.any { it.equals(label, ignoreCase = true) }) {
+                                spans.forEach { span ->
+                                    if (span.size >= 2) {
+                                        addStyle(
+                                            style = SpanStyle(
+                                                color = Color.Red,
+                                                background = Color.Yellow.copy(alpha = 0.5f)
+                                            ),
+                                            start = span[0],
+                                            end = span[1]
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                     Text(text = annotatedString)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (labelsToHighlight.isEmpty()) {
+                        Text(
+                            text = "No dietary needs selected. Check them in the Dietary tab.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    } else {
+                        Text(
+                            text = "Active filters: ${labelsToHighlight.joinToString(", ")}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                        val foundLabels = productInfo!!.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
+                        if (foundLabels.isEmpty()) {
+                            Text(
+                                text = "No matching allergens found in this product.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = barcode, style = MaterialTheme.typography.labelSmall)
                 }
