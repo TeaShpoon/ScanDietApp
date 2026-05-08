@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
 fun BarrrApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.DIETARY) }
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
+    var productInfo by remember { mutableStateOf<ProductInfo?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -130,12 +131,20 @@ fun BarrrApp() {
             when (currentDestination) {
                 AppDestinations.DIETARY -> DietaryNeedsScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.SCANNER -> ScannerScreen(modifier = Modifier.padding(innerPadding)) {
-                    scannedBarcode = it
+                    if (it != scannedBarcode) {
+                        scannedBarcode = it
+                        productInfo = null
+                    }
                     currentDestination = AppDestinations.INFO
                 }
                 AppDestinations.INFO -> {
                     if (scannedBarcode != null) {
-                        InfoScreen(barcode = scannedBarcode!!, modifier = Modifier.padding(innerPadding))
+                        InfoScreen(
+                            barcode = scannedBarcode!!,
+                            productInfo = productInfo,
+                            onProductInfoLoaded = { productInfo = it },
+                            modifier = Modifier.padding(innerPadding)
+                        )
                     } else {
                         Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                             Text("Scan a barcode to see information here.")
@@ -273,8 +282,12 @@ data class ProductInfo(
 )
 
 @Composable
-fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
-    var productInfo by remember { mutableStateOf<ProductInfo?>(null) }
+fun InfoScreen(
+    barcode: String,
+    productInfo: ProductInfo?,
+    onProductInfoLoaded: (ProductInfo) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
@@ -285,12 +298,13 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(barcode) {
+        if (productInfo != null) return@LaunchedEffect
         val client = HttpClient(CIO)
         try {
-            val responseText = client.get("http://127.0.0.1:3000/$barcode").bodyAsText()
+            val responseText = client.get("http://127.0.0.1:3000/barcode/$barcode").bodyAsText()
             Log.d("InfoScreen", "Response: $responseText")
-            productInfo = jsonConfig.decodeFromString(responseText)
-            Log.d("InfoScreen", "Parsed labels: ${productInfo?.labels}")
+            val decoded = jsonConfig.decodeFromString<ProductInfo>(responseText)
+            onProductInfoLoaded(decoded)
             client.close()
         } catch (e: Exception) {
             Log.e("InfoScreen", "Error fetching/parsing", e)
