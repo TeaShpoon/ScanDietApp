@@ -46,14 +46,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -311,10 +317,13 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
                                 spans.forEach { span ->
                                     if (span.size >= 2) {
                                         addStyle(
-                                            style = SpanStyle(
-                                                color = Color.Red,
-                                                background = Color.Yellow.copy(alpha = 0.5f)
-                                            ),
+                                            style = SpanStyle(color = Color.White),
+                                            start = span[0],
+                                            end = span[1]
+                                        )
+                                        addStringAnnotation(
+                                            tag = "HIGHLIGHT",
+                                            annotation = label,
                                             start = span[0],
                                             end = span[1]
                                         )
@@ -323,7 +332,50 @@ fun InfoScreen(barcode: String, modifier: Modifier = Modifier) {
                             }
                         }
                     }
-                    Text(text = annotatedString)
+
+                    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                    Text(
+                        text = annotatedString,
+                        onTextLayout = { textLayoutResult = it },
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            lineHeight = 32.sp
+                        ),
+                        modifier = Modifier.drawBehind {
+                            textLayoutResult?.let { layoutResult ->
+                                annotatedString.getStringAnnotations("HIGHLIGHT", 0, annotatedString.length)
+                                    .forEach { annotation ->
+                                        val start = annotation.start
+                                        val end = annotation.end
+                                        val startLine = layoutResult.getLineForOffset(start)
+                                        val endLine = layoutResult.getLineForOffset(end)
+
+                                        for (line in startLine..endLine) {
+                                            val lineStart = if (line == startLine) start else layoutResult.getLineStart(line)
+                                            val lineEnd = if (line == endLine) end else layoutResult.getLineEnd(line)
+
+                                            val left = layoutResult.getHorizontalPosition(lineStart, true)
+                                            val right = layoutResult.getHorizontalPosition(lineEnd, true)
+                                            
+                                            // Anchor the highlight to the text baseline for perfect consistency
+                                            val baseline = layoutResult.getLineBaseline(line)
+                                            
+                                            // Move the box up significantly to center it on the text height
+                                            // Top is 18sp above baseline, Bottom is 4sp below baseline
+                                            // This creates a 22sp high box centered on the characters
+                                            val top = baseline - 18.sp.toPx()
+                                            val bottom = baseline + 4.sp.toPx()
+
+                                            drawRoundRect(
+                                                color = Color.Red,
+                                                topLeft = Offset(left, top),
+                                                size = Size(right - left, bottom - top),
+                                                cornerRadius = CornerRadius(4.dp.toPx())
+                                            )
+                                        }
+                                    }
+                            }
+                        }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     if (labelsToHighlight.isEmpty()) {
                         Text(
