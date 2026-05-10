@@ -19,6 +19,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        buildConfigField("String", "API_BASE_URL", "\"http://127.0.0.1:3000\"")
     }
 
     buildTypes {
@@ -29,6 +31,7 @@ android {
                 "proguard-rules.pro"
             )
             isZipAlignEnabled = true
+            buildConfigField("String", "API_BASE_URL", "\"http://your-production-url.com\"")
         }
     }
     compileOptions {
@@ -40,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

@@ -312,7 +312,7 @@ fun InfoScreen(
         if (productInfo != null) return@LaunchedEffect
         val client = HttpClient(CIO)
         try {
-            val responseText = client.get("http://127.0.0.1:3000/barcode/$barcode").bodyAsText()
+            val responseText = client.get("${BuildConfig.API_BASE_URL}/barcode/$barcode").bodyAsText()
             Log.d("InfoScreen", "Response: $responseText")
             val decoded = jsonConfig.decodeFromString<ProductInfo>(responseText)
             onProductInfoLoaded(decoded)
