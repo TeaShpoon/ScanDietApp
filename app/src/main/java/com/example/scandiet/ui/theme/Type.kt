@@ -1,4 +1,4 @@
-package com.example.barrr.ui.theme
+package com.example.scandiet.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

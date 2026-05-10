@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">barrr</string>
+    <string name="app_name">ScanDiet</string>
     <string name="nav_dietary">Dietary</string>
     <string name="nav_scanner">Scanner</string>
     <string name="nav_info">Info</string>

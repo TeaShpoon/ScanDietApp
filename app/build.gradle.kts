@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.barrr"
+    namespace = "com.example.scandiet"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.barrr"
+        applicationId = "com.example.scandiet"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

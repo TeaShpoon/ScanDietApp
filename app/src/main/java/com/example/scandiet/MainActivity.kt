@@ -1,4 +1,4 @@
-package com.example.barrr
+package com.example.scandiet
 
 import android.Manifest
 import android.content.Context
@@ -65,7 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.barrr.ui.theme.BarrrTheme
+import com.example.scandiet.ui.theme.ScanDietTheme
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -96,8 +96,8 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         setContent {
-            BarrrTheme {
-                BarrrApp()
+            ScanDietTheme {
+                ScanDietApp()
             }
         }
     }
@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
 
 @PreviewScreenSizes
 @Composable
-fun BarrrApp() {
+fun ScanDietApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.DIETARY) }
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     var productInfo by remember { mutableStateOf<ProductInfo?>(null) }
@@ -450,7 +450,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    BarrrTheme {
+    ScanDietTheme {
         Greeting("Android")
     }
 }

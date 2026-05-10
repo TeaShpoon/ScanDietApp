@@ -1,4 +1,4 @@
-package com.example.barrr
+package com.example.scandiet
 
 import org.junit.Test
 
