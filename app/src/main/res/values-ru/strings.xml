@@ -1,0 +1,27 @@
+<resources>
+    <string name="nav_dietary">Диета</string>
+    <string name="nav_scanner">Сканер</string>
+    <string name="nav_info">Инфо</string>
+
+    <string name="need_gluten">Непереносимость глютена</string>
+    <string name="need_lactose">Непереносимость лактозы</string>
+    <string name="need_tree_nut">Аллергия на орехи</string>
+    <string name="need_peanut">Аллергия на арахис</string>
+    <string name="need_soy">Аллергия на сою</string>
+    <string name="need_shellfish">Аллергия на моллюсков</string>
+    <string name="need_egg">Аллергия на яйца</string>
+    <string name="need_fish">Аллергия на рыбу</string>
+    <string name="need_sesame">Аллергия на кунжут</string>
+    <string name="need_vegetarian">Вегетарианство</string>
+    <string name="need_vegan">Веганство</string>
+    <string name="need_sugar">Ограничение сахара</string>
+    <string name="need_sodium">Ограничение соли</string>
+
+    <string name="scan_prompt">Отсканируйте штрих-код, чтобы увидеть информацию.</string>
+    <string name="no_needs_selected">Диетические потребности не выбраны. Выберите их во вкладке Диета.</string>
+    <string name="active_filters">Активные фильтры: %1$s</string>
+    <string name="no_matches_found">В этом продукте не найдено подходящих аллергенов.</string>
+    <string name="loading">Загрузка…</string>
+    <string name="error_prefix">Ошибка: %1$s</string>
+    <string name="unknown_error">Неизвестная ошибка</string>
+</resources>

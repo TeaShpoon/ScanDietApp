@@ -58,6 +58,8 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -115,10 +117,10 @@ fun BarrrApp() {
                     icon = {
                         Icon(
                             it.icon,
-                            contentDescription = it.label
+                            contentDescription = stringResource(it.labelRes)
                         )
                     },
-                    label = { Text(it.label) },
+                    label = { Text(stringResource(it.labelRes)) },
                     selected = it == currentDestination,
                     onClick = {
                         currentDestination = it
@@ -147,7 +149,7 @@ fun BarrrApp() {
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                            Text("Scan a barcode to see information here.")
+                            Text(stringResource(R.string.scan_prompt))
                         }
                     }
                 }
@@ -157,30 +159,35 @@ fun BarrrApp() {
 }
 
 enum class AppDestinations(
-    val label: String,
+    @StringRes val labelRes: Int,
     val icon: ImageVector,
 ) {
-    DIETARY("Dietary", Icons.Filled.Checklist),
-    SCANNER("Scanner", Icons.Filled.QrCodeScanner),
-    INFO("Info", Icons.Filled.Info),
+    DIETARY(R.string.nav_dietary, Icons.Filled.Checklist),
+    SCANNER(R.string.nav_scanner, Icons.Filled.QrCodeScanner),
+    INFO(R.string.nav_info, Icons.Filled.Info),
 }
 
-data class DietaryNeed(val name: String, val isChecked: Boolean, val labels: List<String>)
+data class DietaryNeed(
+    val key: String,
+    @StringRes val nameRes: Int,
+    val isChecked: Boolean,
+    val labels: List<String>
+)
 
 val allNeeds = listOf(
-    DietaryNeed("Непереносимость глютена", false, listOf("gluten")),
-    DietaryNeed("Непереносимость лактозы", false, listOf("lactose")),
-    DietaryNeed("Аллергия на орехи", false, listOf("tree_nut")),
-    DietaryNeed("Аллергия на арахис", false, listOf("peanut")),
-    DietaryNeed("Аллергия на сою", false, listOf("soy")),
-    DietaryNeed("Аллергия на моллюсков", false, listOf("shellfish")),
-    DietaryNeed("Аллергия на яйца", false, listOf("egg")),
-    DietaryNeed("Аллергия на рыбу", false, listOf("fish")),
-    DietaryNeed("Аллергия на кунжут", false, listOf("sesame")),
-    DietaryNeed("Вегетарианство", false, listOf("meat", "fish")),
-    DietaryNeed("Веганство", false, listOf("meat", "fish", "egg", "lactose")),
-    DietaryNeed("Ограничение сахара", false, listOf("sugar")),
-    DietaryNeed("Ограничение соли", false, listOf("sodium"))
+    DietaryNeed("gluten", R.string.need_gluten, false, listOf("gluten")),
+    DietaryNeed("lactose", R.string.need_lactose, false, listOf("lactose")),
+    DietaryNeed("tree_nut", R.string.need_tree_nut, false, listOf("tree_nut")),
+    DietaryNeed("peanut", R.string.need_peanut, false, listOf("peanut")),
+    DietaryNeed("soy", R.string.need_soy, false, listOf("soy")),
+    DietaryNeed("shellfish", R.string.need_shellfish, false, listOf("shellfish")),
+    DietaryNeed("egg", R.string.need_egg, false, listOf("egg")),
+    DietaryNeed("fish", R.string.need_fish, false, listOf("fish")),
+    DietaryNeed("sesame", R.string.need_sesame, false, listOf("sesame")),
+    DietaryNeed("vegetarian", R.string.need_vegetarian, false, listOf("meat", "fish")),
+    DietaryNeed("vegan", R.string.need_vegan, false, listOf("meat", "fish", "egg", "lactose")),
+    DietaryNeed("sugar", R.string.need_sugar, false, listOf("sugar")),
+    DietaryNeed("sodium", R.string.need_sodium, false, listOf("sodium"))
 )
 
 @Composable
@@ -192,19 +199,19 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
 
     var dietaryNeeds by remember {
         val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
-        mutableStateOf(allNeeds.map { it.copy(isChecked = savedNeeds.contains(it.name)) })
+        mutableStateOf(allNeeds.map { it.copy(isChecked = savedNeeds.contains(it.key)) })
     }
 
     fun updateNeed(need: DietaryNeed, isChecked: Boolean) {
         val updatedNeeds = dietaryNeeds.map {
-            if (it.name == need.name) {
+            if (it.key == need.key) {
                 it.copy(isChecked = isChecked)
             } else {
                 it
             }
         }
         dietaryNeeds = updatedNeeds
-        val newSavedNeeds = updatedNeeds.filter { it.isChecked }.map { it.name }.toSet()
+        val newSavedNeeds = updatedNeeds.filter { it.isChecked }.map { it.key }.toSet()
         prefs.edit().putStringSet("dietary_needs", newSavedNeeds).apply()
     }
 
@@ -222,7 +229,7 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
                     onCheckedChange = { isChecked -> updateNeed(need, isChecked) }
                 )
                 Spacer(modifier = Modifier.width(16.dp))
-                Text(text = need.name)
+                Text(text = stringResource(need.nameRes))
             }
         }
     }
@@ -291,10 +298,14 @@ fun InfoScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
-    val labelsToHighlight = remember(barcode, productInfo) {
+    val selectedNeeds = remember(barcode, productInfo) {
         val prefs = context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE)
         val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
-        allNeeds.filter { savedNeeds.contains(it.name) }.flatMap { it.labels }.toSet()
+        allNeeds.filter { savedNeeds.contains(it.key) }
+    }
+
+    val labelsToHighlight = remember(selectedNeeds) {
+        selectedNeeds.flatMap { it.labels }.toSet()
     }
 
     LaunchedEffect(barcode) {
@@ -308,7 +319,7 @@ fun InfoScreen(
             client.close()
         } catch (e: Exception) {
             Log.e("InfoScreen", "Error fetching/parsing", e)
-            error = "Error: ${e.message}"
+            error = context.getString(R.string.error_prefix, e.message ?: context.getString(R.string.unknown_error))
             client.close()
         }
     }
@@ -322,11 +333,11 @@ fun InfoScreen(
         when {
             productInfo != null -> {
                 Column {
-                    Text(text = productInfo!!.name, style = MaterialTheme.typography.headlineLarge)
+                    Text(text = productInfo.name, style = MaterialTheme.typography.headlineLarge)
                     Spacer(modifier = Modifier.height(16.dp))
                     val annotatedString = buildAnnotatedString {
-                        append(productInfo!!.ingredients)
-                        productInfo!!.labels.forEach { (label, spans) ->
+                        append(productInfo.ingredients)
+                        productInfo.labels.forEach { (label, spans) ->
                             if (labelsToHighlight.any { it.equals(label, ignoreCase = true) }) {
                                 spans.forEach { span ->
                                     if (span.size >= 2) {
@@ -391,22 +402,23 @@ fun InfoScreen(
                         }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    if (labelsToHighlight.isEmpty()) {
+                    if (selectedNeeds.isEmpty()) {
                         Text(
-                            text = "No dietary needs selected. Check them in the Dietary tab.",
+                            text = stringResource(R.string.no_needs_selected),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
                     } else {
+                        val activeFiltersText = selectedNeeds.joinToString(", ") { context.getString(it.nameRes) }
                         Text(
-                            text = "Active filters: ${labelsToHighlight.joinToString(", ")}",
+                            text = stringResource(R.string.active_filters, activeFiltersText),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
-                        val foundLabels = productInfo!!.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
+                        val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
                         if (foundLabels.isEmpty()) {
                             Text(
-                                text = "No matching allergens found in this product.",
+                                text = stringResource(R.string.no_matches_found),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Gray
                             )
@@ -420,7 +432,7 @@ fun InfoScreen(
                 Text(text = error!!)
             }
             else -> {
-                Text(text = "Loading...")
+                Text(text = stringResource(R.string.loading))
             }
         }
     }
