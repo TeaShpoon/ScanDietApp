@@ -99,6 +99,17 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Rect
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
@@ -393,12 +404,61 @@ fun HistoryScreen(
     }
 }
 
+class BarcodeUiState(
+    val value: String,
+    initialRect: Rect,
+    private val scope: CoroutineScope
+) {
+    var lastSeen by mutableLongStateOf(System.currentTimeMillis())
+    var isFadingOut by mutableStateOf(false)
+
+    val offset = Animatable(Offset(initialRect.left, initialRect.top), Offset.VectorConverter)
+    val size = Animatable(Size(initialRect.width, initialRect.height), Size.VectorConverter)
+    val alpha = Animatable(0f)
+
+    fun update(newRect: Rect) {
+        lastSeen = System.currentTimeMillis()
+        if (!isFadingOut) {
+            scope.launch {
+                offset.animateTo(
+                    Offset(newRect.left, newRect.top),
+                    spring(stiffness = Spring.StiffnessMedium)
+                )
+            }
+            scope.launch {
+                size.animateTo(
+                    Size(newRect.width, newRect.height),
+                    spring(stiffness = Spring.StiffnessMedium)
+                )
+            }
+        }
+    }
+
+    fun fadeIn() {
+        scope.launch {
+            alpha.animateTo(1f)
+        }
+    }
+
+    fun fadeOut(onFinished: () -> Unit) {
+        isFadingOut = true
+        scope.launch {
+            alpha.animateTo(0f)
+            onFinished()
+        }
+    }
+}
+
 @Composable
 fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraController = remember { LifecycleCameraController(context) }
+    val scope = rememberCoroutineScope()
+
     var detectedBarcodes by remember { mutableStateOf<List<Barcode>>(emptyList()) }
+    val activeBarcodes = remember { mutableStateMapOf<String, BarcodeUiState>() }
+    var selectedBarcodeValue by remember { mutableStateOf<String?>(null) }
 
     val options = remember {
         BarcodeScannerOptions.Builder()
@@ -424,13 +484,56 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
         val centerX = constraints.maxWidth / 2f
         val centerY = constraints.maxHeight / 2f
 
-        val prioritizedBarcode = remember(detectedBarcodes) {
+        // Selection stability logic
+        val candidate = remember(detectedBarcodes) {
             detectedBarcodes.minByOrNull { barcode ->
                 barcode.boundingBox?.let { box ->
                     val boxCenterX = box.centerX()
                     val boxCenterY = box.centerY()
                     sqrt(((boxCenterX - centerX) * (boxCenterX - centerX) + (boxCenterY - centerY) * (boxCenterY - centerY)).toDouble())
                 } ?: Double.MAX_VALUE
+            }
+        }
+
+        LaunchedEffect(candidate?.rawValue) {
+            if (candidate?.rawValue != selectedBarcodeValue) {
+                delay(500)
+                selectedBarcodeValue = candidate?.rawValue
+            }
+        }
+
+        // Bounding box animation and throttling logic
+        LaunchedEffect(Unit) {
+            while (true) {
+                val now = System.currentTimeMillis()
+                val currentDetected = detectedBarcodes
+
+                // Update existing or add new
+                currentDetected.forEach { barcode ->
+                    val value = barcode.rawValue ?: return@forEach
+                    val rect = barcode.boundingBox?.toComposeRect() ?: return@forEach
+
+                    val state = activeBarcodes[value]
+                    if (state == null) {
+                        val newState = BarcodeUiState(value, rect, scope)
+                        activeBarcodes[value] = newState
+                        newState.fadeIn()
+                    } else {
+                        state.update(rect)
+                    }
+                }
+
+                // Clean up old barcodes
+                val toRemove = activeBarcodes.entries.filter {
+                    now - it.value.lastSeen > 300 && !it.value.isFadingOut
+                }
+                toRemove.forEach { (value, state) ->
+                    state.fadeOut {
+                        activeBarcodes.remove(value)
+                    }
+                }
+
+                delay(40) // Update target positions at ~25fps for better responsiveness
             }
         }
 
@@ -444,22 +547,20 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
         )
 
         Canvas(modifier = Modifier.fillMaxSize()) {
-            detectedBarcodes.forEach { barcode ->
-                barcode.boundingBox?.let { box ->
-                    val rect = box.toComposeRect()
-                    val isPrioritized = barcode == prioritizedBarcode
-                    drawRoundRect(
-                        color = if (isPrioritized) Color.Yellow else Color.White.copy(alpha = 0.5f),
-                        topLeft = Offset(rect.left, rect.top),
-                        size = Size(rect.width, rect.height),
-                        cornerRadius = CornerRadius(4.dp.toPx()),
-                        style = Stroke(width = if (isPrioritized) 3.dp.toPx() else 1.dp.toPx())
-                    )
-                }
+            activeBarcodes.values.forEach { state ->
+                val isPrioritized = state.value == selectedBarcodeValue
+                drawRoundRect(
+                    color = if (isPrioritized) Color.Yellow.copy(alpha = state.alpha.value)
+                    else Color.White.copy(alpha = 0.5f * state.alpha.value),
+                    topLeft = state.offset.value,
+                    size = state.size.value,
+                    cornerRadius = CornerRadius(4.dp.toPx()),
+                    style = Stroke(width = if (isPrioritized) 3.dp.toPx() else 1.dp.toPx())
+                )
             }
         }
 
-        prioritizedBarcode?.rawValue?.let { barcodeValue ->
+        selectedBarcodeValue?.let { barcodeValue ->
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
