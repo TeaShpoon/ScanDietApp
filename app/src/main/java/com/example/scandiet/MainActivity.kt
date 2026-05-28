@@ -13,9 +13,10 @@ import androidx.camera.mlkit.vision.MlKitAnalyzer
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,9 +33,14 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -247,21 +253,42 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
         prefs.edit().putStringSet("dietary_needs", newSavedNeeds).apply()
     }
 
-    LazyColumn(modifier = modifier.padding(16.dp)) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         items(dietaryNeeds) { need ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { updateNeed(need, !need.isChecked) }
-                    .padding(vertical = 8.dp)
-            ) {
-                Checkbox(
-                    checked = need.isChecked,
-                    onCheckedChange = { isChecked -> updateNeed(need, isChecked) }
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { updateNeed(need, !need.isChecked) },
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = if (need.isChecked) 
+                        MaterialTheme.colorScheme.primaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.surfaceContainerLow
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(text = stringResource(need.nameRes))
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = need.isChecked,
+                        onCheckedChange = { isGranted -> updateNeed(need, isGranted) }
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = stringResource(need.nameRes),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (need.isChecked) 
+                            MaterialTheme.colorScheme.onPrimaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
@@ -293,34 +320,55 @@ fun HistoryScreen(
         selectedNeeds.flatMap { it.labels }.toSet()
     }
 
-    LazyColumn(modifier = modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         items(history) { item ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onItemClick(item) }
-                    .padding(16.dp)
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onItemClick(item) },
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
             ) {
-                Text(text = item.productInfo.name, style = MaterialTheme.typography.titleLarge)
-                
-                val allergensFound = item.productInfo.labels.keys.filter { label ->
-                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
-                }
-                
-                if (allergensFound.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
                     Text(
-                        text = "Allergens: ${allergensFound.joinToString(", ")}",
-                        color = Color.Red,
-                        style = MaterialTheme.typography.bodyMedium
+                        text = item.productInfo.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                } else {
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val allergensFound = item.productInfo.labels.keys.filter { label ->
+                        labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                    }
+                    
+                    if (allergensFound.isNotEmpty()) {
+                        Text(
+                            text = "Contains: ${allergensFound.joinToString(", ")}",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        Text(
+                            text = "No selected allergens found",
+                            color = Color(0xFF2E7D32), // Success green
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Safe (no selected allergens found)",
-                        color = Color.Green,
-                        style = MaterialTheme.typography.bodySmall
+                        text = item.barcode,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(text = item.barcode, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
         }
     }
@@ -419,111 +467,157 @@ fun InfoScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         when {
             productInfo != null -> {
-                Column {
-                    Text(text = productInfo.name, style = MaterialTheme.typography.headlineLarge)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val annotatedString = buildAnnotatedString {
-                        append(productInfo.ingredients)
-                        productInfo.labels.forEach { (label, spans) ->
-                            if (labelsToHighlight.any { it.equals(label, ignoreCase = true) }) {
-                                spans.forEach { span ->
-                                    if (span.size >= 2) {
-                                        addStyle(
-                                            style = SpanStyle(color = Color.White),
-                                            start = span[0],
-                                            end = span[1]
-                                        )
-                                        addStringAnnotation(
-                                            tag = "HIGHLIGHT",
-                                            annotation = label,
-                                            start = span[0],
-                                            end = span[1]
-                                        )
+                Text(
+                    text = productInfo.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Ingredients",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val annotatedString = buildAnnotatedString {
+                            append(productInfo.ingredients)
+                            productInfo.labels.forEach { (label, spans) ->
+                                if (labelsToHighlight.any { it.equals(label, ignoreCase = true) }) {
+                                    spans.forEach { span ->
+                                        if (span.size >= 2) {
+                                            addStyle(
+                                                style = SpanStyle(color = Color.White),
+                                                start = span[0],
+                                                end = span[1]
+                                            )
+                                            addStringAnnotation(
+                                                tag = "HIGHLIGHT",
+                                                annotation = label,
+                                                start = span[0],
+                                                end = span[1]
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-                    Text(
-                        text = annotatedString,
-                        onTextLayout = { textLayoutResult = it },
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            lineHeight = 32.sp
-                        ),
-                        modifier = Modifier.drawBehind {
-                            textLayoutResult?.let { layoutResult ->
-                                annotatedString.getStringAnnotations("HIGHLIGHT", 0, annotatedString.length)
-                                    .forEach { annotation ->
-                                        val start = annotation.start
-                                        val end = annotation.end
-                                        val startLine = layoutResult.getLineForOffset(start)
-                                        val endLine = layoutResult.getLineForOffset(end)
+                        var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                        Text(
+                            text = annotatedString,
+                            onTextLayout = { textLayoutResult = it },
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                lineHeight = 32.sp
+                            ),
+                            modifier = Modifier.drawBehind {
+                                textLayoutResult?.let { layoutResult ->
+                                    annotatedString.getStringAnnotations("HIGHLIGHT", 0, annotatedString.length)
+                                        .forEach { annotation ->
+                                            val start = annotation.start
+                                            val end = annotation.end
+                                            val startLine = layoutResult.getLineForOffset(start)
+                                            val endLine = layoutResult.getLineForOffset(end)
 
-                                        for (line in startLine..endLine) {
-                                            val lineStart = if (line == startLine) start else layoutResult.getLineStart(line)
-                                            val lineEnd = if (line == endLine) end else layoutResult.getLineEnd(line)
+                                            for (line in startLine..endLine) {
+                                                val lineStart = if (line == startLine) start else layoutResult.getLineStart(line)
+                                                val lineEnd = if (line == endLine) end else layoutResult.getLineEnd(line)
 
-                                            val left = layoutResult.getHorizontalPosition(lineStart, true)
-                                            val right = layoutResult.getHorizontalPosition(lineEnd, true)
-                                            
-                                            // Anchor the highlight to the text baseline for perfect consistency
-                                            val baseline = layoutResult.getLineBaseline(line)
-                                            
-                                            // Move the box up significantly to center it on the text height
-                                            // Top is 18sp above baseline, Bottom is 4sp below baseline
-                                            // This creates a 22sp high box centered on the characters
-                                            val top = baseline - 18.sp.toPx()
-                                            val bottom = baseline + 4.sp.toPx()
+                                                val left = layoutResult.getHorizontalPosition(lineStart, true)
+                                                val right = layoutResult.getHorizontalPosition(lineEnd, true)
+                                                
+                                                val baseline = layoutResult.getLineBaseline(line)
+                                                val top = baseline - 18.sp.toPx()
+                                                val bottom = baseline + 4.sp.toPx()
 
-                                            drawRoundRect(
-                                                color = Color.Red,
-                                                topLeft = Offset(left, top),
-                                                size = Size(right - left, bottom - top),
-                                                cornerRadius = CornerRadius(4.dp.toPx())
-                                            )
+                                                drawRoundRect(
+                                                    color = Color.Red,
+                                                    topLeft = Offset(left, top),
+                                                    size = Size(right - left, bottom - top),
+                                                    cornerRadius = CornerRadius(4.dp.toPx())
+                                                )
+                                            }
                                         }
-                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+
+                if (selectedNeeds.isNotEmpty()) {
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            val activeFiltersText = selectedNeeds.joinToString(", ") { context.getString(it.nameRes) }
+                            Text(
+                                text = stringResource(R.string.active_filters, activeFiltersText),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
+                            if (foundLabels.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Alert: Matching allergens highlighted in red.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = stringResource(R.string.no_matches_found),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF2E7D32)
+                                )
                             }
                         }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (selectedNeeds.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.no_needs_selected),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
-                    } else {
-                        val activeFiltersText = selectedNeeds.joinToString(", ") { context.getString(it.nameRes) }
-                        Text(
-                            text = stringResource(R.string.active_filters, activeFiltersText),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
-                        val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
-                        if (foundLabels.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.no_matches_found),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
-                        }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = barcode, style = MaterialTheme.typography.labelSmall)
+                } else {
+                    Text(
+                        text = stringResource(R.string.no_needs_selected),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
                 }
+
+                Text(
+                    text = "Barcode: $barcode",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
             error != null -> {
-                Text(text = error!!)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = error!!,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
             }
             else -> {
-                Text(text = stringResource(R.string.loading))
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(text = stringResource(R.string.loading), style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }
