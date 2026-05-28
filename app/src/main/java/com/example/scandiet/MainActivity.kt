@@ -13,6 +13,7 @@ import androidx.camera.mlkit.vision.MlKitAnalyzer
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -314,17 +315,30 @@ fun HistoryScreen(
         selectedNeeds.flatMap { it.labels }.toSet()
     }
 
+    val isDark = isSystemInDarkTheme()
+    val safeContainer = if (isDark) Color(0xFF00390A) else Color(0xFFE8F5E9)
+    val onSafeContainer = if (isDark) Color(0xFFB2F3B0) else Color(0xFF1B5E20)
+    val safeText = if (isDark) Color(0xFFB2F3B0) else Color(0xFF2E7D32)
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(history) { item ->
+            val allergensFound = item.productInfo.labels.keys.filter { label ->
+                labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+            }
+            val isUnsafe = allergensFound.isNotEmpty()
+
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onItemClick(item) },
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = if (isUnsafe) 
+                        MaterialTheme.colorScheme.errorContainer 
+                    else 
+                        safeContainer
                 )
             ) {
                 Column(
@@ -333,16 +347,15 @@ fun HistoryScreen(
                     Text(
                         text = item.productInfo.name,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = if (isUnsafe) 
+                            MaterialTheme.colorScheme.onErrorContainer 
+                        else 
+                            onSafeContainer
                     )
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    val allergensFound = item.productInfo.labels.keys.filter { label ->
-                        labelsToHighlight.any { it.equals(label, ignoreCase = true) }
-                    }
-                    
-                    if (allergensFound.isNotEmpty()) {
+                    if (isUnsafe) {
                         Text(
                             text = "Contains: ${allergensFound.joinToString(", ")}",
                             color = MaterialTheme.colorScheme.error,
@@ -351,7 +364,7 @@ fun HistoryScreen(
                     } else {
                         Text(
                             text = "No selected allergens found",
-                            color = Color(0xFF2E7D32), // Success green
+                            color = safeText,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -360,7 +373,10 @@ fun HistoryScreen(
                     Text(
                         text = item.barcode,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isUnsafe) 
+                            MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) 
+                        else 
+                            onSafeContainer.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -493,7 +509,10 @@ fun InfoScreen(
                                     spans.forEach { span ->
                                         if (span.size >= 2) {
                                             addStyle(
-                                                style = SpanStyle(color = Color.White),
+                                                style = SpanStyle(
+                                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                                    background = MaterialTheme.colorScheme.errorContainer
+                                                ),
                                                 start = span[0],
                                                 end = span[1]
                                             )
@@ -509,73 +528,56 @@ fun InfoScreen(
                             }
                         }
 
-                        var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                         Text(
                             text = annotatedString,
-                            onTextLayout = { textLayoutResult = it },
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 lineHeight = 32.sp
-                            ),
-                            modifier = Modifier.drawBehind {
-                                textLayoutResult?.let { layoutResult ->
-                                    annotatedString.getStringAnnotations("HIGHLIGHT", 0, annotatedString.length)
-                                        .forEach { annotation ->
-                                            val start = annotation.start
-                                            val end = annotation.end
-                                            val startLine = layoutResult.getLineForOffset(start)
-                                            val endLine = layoutResult.getLineForOffset(end)
-
-                                            for (line in startLine..endLine) {
-                                                val lineStart = if (line == startLine) start else layoutResult.getLineStart(line)
-                                                val lineEnd = if (line == endLine) end else layoutResult.getLineEnd(line)
-
-                                                val left = layoutResult.getHorizontalPosition(lineStart, true)
-                                                val right = layoutResult.getHorizontalPosition(lineEnd, true)
-                                                
-                                                val baseline = layoutResult.getLineBaseline(line)
-                                                val top = baseline - 18.sp.toPx()
-                                                val bottom = baseline + 4.sp.toPx()
-
-                                                drawRoundRect(
-                                                    color = Color.Red,
-                                                    topLeft = Offset(left, top),
-                                                    size = Size(right - left, bottom - top),
-                                                    cornerRadius = CornerRadius(4.dp.toPx())
-                                                )
-                                            }
-                                        }
-                                }
-                            }
+                            )
                         )
                     }
                 }
 
                 if (selectedNeeds.isNotEmpty()) {
-                    OutlinedCard(
-                        modifier = Modifier.fillMaxWidth()
+                    val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
+                    val hasAllergens = foundLabels.isNotEmpty()
+                    val isDark = isSystemInDarkTheme()
+                    val safeContainer = if (isDark) Color(0xFF00390A) else Color(0xFFE8F5E9)
+                    val onSafeContainer = if (isDark) Color(0xFFB2F3B0) else Color(0xFF1B5E20)
+                    val safeText = if (isDark) Color(0xFFB2F3B0) else Color(0xFF2E7D32)
+
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = if (hasAllergens) 
+                                MaterialTheme.colorScheme.errorContainer 
+                            else 
+                                safeContainer
+                        )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             val activeFiltersText = selectedNeeds.joinToString(", ") { context.getString(it.nameRes) }
                             Text(
                                 text = stringResource(R.string.active_filters, activeFiltersText),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (hasAllergens) 
+                                    MaterialTheme.colorScheme.onErrorContainer 
+                                else 
+                                    onSafeContainer
                             )
                             
-                            val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
-                            if (foundLabels.isNotEmpty()) {
+                            if (hasAllergens) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Alert: Matching allergens highlighted in red.",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    text = "Alert: Matching allergens found and highlighted.",
+                                    style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.error
                                 )
                             } else {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = stringResource(R.string.no_matches_found),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF2E7D32)
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = safeText
                                 )
                             }
                         }
