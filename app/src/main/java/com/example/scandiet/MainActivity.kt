@@ -72,6 +72,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toComposeRect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -545,6 +546,63 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // Subtle scanner guides (rounded corners)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val boxSize = 250.dp.toPx()
+            val left = (size.width - boxSize) / 2
+            val top = (size.height - boxSize) / 2
+            val rect = Rect(left, top, left + boxSize, top + boxSize)
+            
+            val color = Color.White.copy(alpha = 0.3f)
+            val strokeWidth = 2.dp.toPx()
+            val radius = 24.dp.toPx()
+            val arcSize = Size(radius * 2, radius * 2)
+
+            // Top-left
+            drawArc(
+                color = color,
+                startAngle = 180f,
+                sweepAngle = 90f,
+                useCenter = false,
+                topLeft = Offset(rect.left, rect.top),
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+            
+            // Top-right
+            drawArc(
+                color = color,
+                startAngle = 270f,
+                sweepAngle = 90f,
+                useCenter = false,
+                topLeft = Offset(rect.right - radius * 2, rect.top),
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+            
+            // Bottom-right
+            drawArc(
+                color = color,
+                startAngle = 0f,
+                sweepAngle = 90f,
+                useCenter = false,
+                topLeft = Offset(rect.right - radius * 2, rect.bottom - radius * 2),
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+            
+            // Bottom-left
+            drawArc(
+                color = color,
+                startAngle = 90f,
+                sweepAngle = 90f,
+                useCenter = false,
+                topLeft = Offset(rect.left, rect.bottom - radius * 2),
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+        }
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             activeBarcodes.values.forEach { state ->
