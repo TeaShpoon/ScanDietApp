@@ -13,6 +13,7 @@ import androidx.camera.mlkit.vision.MlKitAnalyzer
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -315,11 +316,6 @@ fun HistoryScreen(
         selectedNeeds.flatMap { it.labels }.toSet()
     }
 
-    val isDark = isSystemInDarkTheme()
-    val safeContainer = if (isDark) Color(0xFF00390A) else Color(0xFFE8F5E9)
-    val onSafeContainer = if (isDark) Color(0xFFB2F3B0) else Color(0xFF1B5E20)
-    val safeText = if (isDark) Color(0xFFB2F3B0) else Color(0xFF2E7D32)
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -330,15 +326,19 @@ fun HistoryScreen(
                 labelsToHighlight.any { it.equals(label, ignoreCase = true) }
             }
             val isUnsafe = allergensFound.isNotEmpty()
+            val isDark = isSystemInDarkTheme()
+            val borderColor = if (isUnsafe) {
+                if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+            } else {
+                if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+            }
 
-            ElevatedCard(
+            OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onItemClick(item) },
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = if (isUnsafe) 
-                        MaterialTheme.colorScheme.errorContainer 
-                    else 
-                        safeContainer
+                border = BorderStroke(2.dp, borderColor),
+                colors = CardDefaults.outlinedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 )
             ) {
                 Column(
@@ -347,36 +347,30 @@ fun HistoryScreen(
                     Text(
                         text = item.productInfo.name,
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (isUnsafe) 
-                            MaterialTheme.colorScheme.onErrorContainer 
-                        else 
-                            onSafeContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     if (isUnsafe) {
                         Text(
                             text = "Contains: ${allergensFound.joinToString(", ")}",
-                            color = MaterialTheme.colorScheme.error,
+                            color = borderColor,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     } else {
                         Text(
                             text = "No selected allergens found",
-                            color = safeText,
+                            color = borderColor,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = item.barcode,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isUnsafe) 
-                            MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) 
-                        else 
-                            onSafeContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -541,17 +535,17 @@ fun InfoScreen(
                     val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
                     val hasAllergens = foundLabels.isNotEmpty()
                     val isDark = isSystemInDarkTheme()
-                    val safeContainer = if (isDark) Color(0xFF00390A) else Color(0xFFE8F5E9)
-                    val onSafeContainer = if (isDark) Color(0xFFB2F3B0) else Color(0xFF1B5E20)
-                    val safeText = if (isDark) Color(0xFFB2F3B0) else Color(0xFF2E7D32)
+                    val borderColor = if (hasAllergens) {
+                        if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+                    } else {
+                        if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                    }
 
-                    ElevatedCard(
+                    OutlinedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = if (hasAllergens) 
-                                MaterialTheme.colorScheme.errorContainer 
-                            else 
-                                safeContainer
+                        border = BorderStroke(2.dp, borderColor),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -559,10 +553,7 @@ fun InfoScreen(
                             Text(
                                 text = stringResource(R.string.active_filters, activeFiltersText),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (hasAllergens) 
-                                    MaterialTheme.colorScheme.onErrorContainer 
-                                else 
-                                    onSafeContainer
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             
                             if (hasAllergens) {
@@ -570,14 +561,14 @@ fun InfoScreen(
                                 Text(
                                     text = "Alert: Matching allergens found and highlighted.",
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = borderColor
                                 )
                             } else {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = stringResource(R.string.no_matches_found),
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = safeText
+                                    color = borderColor
                                 )
                             }
                         }
