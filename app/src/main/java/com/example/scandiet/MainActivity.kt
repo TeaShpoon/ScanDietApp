@@ -263,10 +263,7 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { updateNeed(need, !need.isChecked) },
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = if (need.isChecked) 
-                        MaterialTheme.colorScheme.primaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.surfaceContainerLow
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 )
             ) {
                 Row(
@@ -283,10 +280,7 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
                     Text(
                         text = stringResource(need.nameRes),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (need.isChecked) 
-                            MaterialTheme.colorScheme.onPrimaryContainer 
-                        else 
-                            MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
