@@ -17,24 +17,32 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -44,11 +52,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,14 +70,18 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toComposeRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,6 +99,7 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
@@ -383,6 +398,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraController = remember { LifecycleCameraController(context) }
+    var detectedBarcodes by remember { mutableStateOf<List<Barcode>>(emptyList()) }
 
     val options = remember {
         BarcodeScannerOptions.Builder()
@@ -398,16 +414,26 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             COORDINATE_SYSTEM_VIEW_REFERENCED,
             ContextCompat.getMainExecutor(context)
         ) { result: MlKitAnalyzer.Result ->
-                result.getValue(barcodeScanner)?.firstOrNull()?.rawValue?.let {
-                    onBarcodeScanned(it)
-                    Log.d("ScannerScreen", "Barcode raw value: $it")
-                }
+            detectedBarcodes = result.getValue(barcodeScanner) ?: emptyList()
         }
     )
 
     cameraController.bindToLifecycle(lifecycleOwner)
 
-    Box(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val centerX = constraints.maxWidth / 2f
+        val centerY = constraints.maxHeight / 2f
+
+        val prioritizedBarcode = remember(detectedBarcodes) {
+            detectedBarcodes.minByOrNull { barcode ->
+                barcode.boundingBox?.let { box ->
+                    val boxCenterX = box.centerX()
+                    val boxCenterY = box.centerY()
+                    sqrt(((boxCenterX - centerX) * (boxCenterX - centerX) + (boxCenterY - centerY) * (boxCenterY - centerY)).toDouble())
+                } ?: Double.MAX_VALUE
+            }
+        }
+
         AndroidView(
             factory = { context ->
                 PreviewView(context).apply {
@@ -416,6 +442,52 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            detectedBarcodes.forEach { barcode ->
+                barcode.boundingBox?.let { box ->
+                    val rect = box.toComposeRect()
+                    val isPrioritized = barcode == prioritizedBarcode
+                    drawRoundRect(
+                        color = if (isPrioritized) Color.Yellow else Color.White.copy(alpha = 0.5f),
+                        topLeft = Offset(rect.left, rect.top),
+                        size = Size(rect.width, rect.height),
+                        cornerRadius = CornerRadius(4.dp.toPx()),
+                        style = Stroke(width = if (isPrioritized) 3.dp.toPx() else 1.dp.toPx())
+                    )
+                }
+            }
+        }
+
+        prioritizedBarcode?.rawValue?.let { barcodeValue ->
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .wrapContentSize(),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+                tonalElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = barcodeValue,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                    Button(
+                        onClick = { onBarcodeScanned(barcodeValue) },
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("View Product", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+        }
     }
 }
 
