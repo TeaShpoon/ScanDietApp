@@ -3,6 +3,7 @@
     <string name="nav_dietary">Dietary</string>
     <string name="nav_scanner">Scanner</string>
     <string name="nav_info">Info</string>
+    <string name="nav_history">History</string>
 
     <string name="need_gluten">Gluten intolerance</string>
     <string name="need_lactose">Lactose intolerance</string>

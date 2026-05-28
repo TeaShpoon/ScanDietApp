@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Checkbox
@@ -74,6 +75,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class MainActivity : ComponentActivity() {
@@ -110,9 +112,10 @@ fun ScanDietApp() {
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     var productInfo by remember { mutableStateOf<ProductInfo?>(null) }
 
+    val context = LocalContext.current
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach {
+            AppDestinations.entries.filter { it.showInNavBar }.forEach {
                 item(
                     icon = {
                         Icon(
@@ -139,12 +142,32 @@ fun ScanDietApp() {
                     }
                     currentDestination = AppDestinations.INFO
                 }
+                AppDestinations.HISTORY -> HistoryScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onItemClick = { item ->
+                        scannedBarcode = item.barcode
+                        productInfo = item.productInfo
+                        currentDestination = AppDestinations.INFO
+                    }
+                )
                 AppDestinations.INFO -> {
                     if (scannedBarcode != null) {
                         InfoScreen(
                             barcode = scannedBarcode!!,
                             productInfo = productInfo,
-                            onProductInfoLoaded = { productInfo = it },
+                            onProductInfoLoaded = { loadedInfo ->
+                                productInfo = loadedInfo
+                                val prefs = context.getSharedPreferences("history_prefs", Context.MODE_PRIVATE)
+                                val historyJson = prefs.getString("history", "[]") ?: "[]"
+                                val history = try {
+                                    jsonConfig.decodeFromString<List<HistoryItem>>(historyJson).toMutableList()
+                                } catch (e: Exception) {
+                                    mutableListOf()
+                                }
+                                history.removeAll { it.barcode == scannedBarcode!! }
+                                history.add(0, HistoryItem(scannedBarcode!!, loadedInfo))
+                                prefs.edit().putString("history", jsonConfig.encodeToString(history.take(50))).apply()
+                            },
                             modifier = Modifier.padding(innerPadding)
                         )
                     } else {
@@ -161,11 +184,20 @@ fun ScanDietApp() {
 enum class AppDestinations(
     @StringRes val labelRes: Int,
     val icon: ImageVector,
+    val showInNavBar: Boolean = true
 ) {
     DIETARY(R.string.nav_dietary, Icons.Filled.Checklist),
     SCANNER(R.string.nav_scanner, Icons.Filled.QrCodeScanner),
-    INFO(R.string.nav_info, Icons.Filled.Info),
+    HISTORY(R.string.nav_history, Icons.Filled.History),
+    INFO(R.string.nav_info, Icons.Filled.Info, showInNavBar = false),
 }
+
+@Serializable
+data class HistoryItem(
+    val barcode: String,
+    val productInfo: ProductInfo,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 data class DietaryNeed(
     val key: String,
@@ -230,6 +262,65 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(text = stringResource(need.nameRes))
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryScreen(
+    modifier: Modifier = Modifier,
+    onItemClick: (HistoryItem) -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("history_prefs", Context.MODE_PRIVATE) }
+    val dietaryPrefs = remember { context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE) }
+
+    val history = remember {
+        val json = prefs.getString("history", "[]") ?: "[]"
+        try {
+            jsonConfig.decodeFromString<List<HistoryItem>>(json)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    val selectedNeeds = remember {
+        val savedNeeds = dietaryPrefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
+        allNeeds.filter { savedNeeds.contains(it.key) }
+    }
+    val labelsToHighlight = remember(selectedNeeds) {
+        selectedNeeds.flatMap { it.labels }.toSet()
+    }
+
+    LazyColumn(modifier = modifier.fillMaxSize()) {
+        items(history) { item ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onItemClick(item) }
+                    .padding(16.dp)
+            ) {
+                Text(text = item.productInfo.name, style = MaterialTheme.typography.titleLarge)
+                
+                val allergensFound = item.productInfo.labels.keys.filter { label ->
+                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                }
+                
+                if (allergensFound.isNotEmpty()) {
+                    Text(
+                        text = "Allergens: ${allergensFound.joinToString(", ")}",
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Text(
+                        text = "Safe (no selected allergens found)",
+                        color = Color.Green,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Text(text = item.barcode, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
         }
     }
