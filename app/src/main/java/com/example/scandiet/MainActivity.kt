@@ -71,6 +71,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeRect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -618,33 +622,59 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             }
         }
 
+        // Top barcode "pillow"
         selectedBarcodeValue?.let { barcodeValue ->
             Surface(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 48.dp)
                     .wrapContentSize(),
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
                 tonalElevation = 4.dp
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = barcodeValue,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(end = 12.dp)
+                Text(
+                    text = barcodeValue,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+
+        // Bottom "Shutter" button with background
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 40.dp)
+                .size(92.dp)
+                .background(Color.Black.copy(alpha = 0.25f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(76.dp)
+                    .background(
+                        color = if (selectedBarcodeValue != null)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            Color.White.copy(alpha = 0.3f),
+                        shape = CircleShape
                     )
-                    Button(
-                        onClick = { onBarcodeScanned(barcodeValue) },
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text("View Product", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
+                    .clickable(
+                        enabled = selectedBarcodeValue != null,
+                        onClick = { selectedBarcodeValue?.let { onBarcodeScanned(it) } }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Scan",
+                    modifier = Modifier.size(36.dp),
+                    tint = if (selectedBarcodeValue != null)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        Color.White.copy(alpha = 0.6f)
+                )
             }
         }
     }
