@@ -32,12 +32,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
@@ -47,6 +49,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -238,6 +242,10 @@ data class HistoryItem(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+enum class HistoryFilter {
+    ALL, SAFE, UNSAFE
+}
+
 data class DietaryNeed(
     val key: String,
     @StringRes val nameRes: Int,
@@ -347,62 +355,106 @@ fun HistoryScreen(
         selectedNeeds.flatMap { it.labels }.toSet()
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(history) { item ->
-            val allergensFound = item.productInfo.labels.keys.filter { label ->
-                labelsToHighlight.any { it.equals(label, ignoreCase = true) }
-            }
-            val isUnsafe = allergensFound.isNotEmpty()
-            val isDark = isSystemInDarkTheme()
-            val borderColor = if (isUnsafe) {
-                if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
-            } else {
-                if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
-            }
+    var selectedFilter by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
 
-            OutlinedCard(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { onItemClick(item) },
-                border = BorderStroke(2.dp, borderColor),
-                colors = CardDefaults.outlinedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val filteredHistory = remember(history, selectedFilter, labelsToHighlight) {
+        when (selectedFilter) {
+            HistoryFilter.ALL -> history
+            HistoryFilter.SAFE -> history.filter { item ->
+                item.productInfo.labels.keys.none { label ->
+                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                }
+            }
+            HistoryFilter.UNSAFE -> history.filter { item ->
+                item.productInfo.labels.keys.any { label ->
+                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                }
+            }
+        }
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(HistoryFilter.entries.toTypedArray()) { filter ->
+                FilterChip(
+                    selected = selectedFilter == filter,
+                    onClick = { selectedFilter = filter },
+                    label = { Text(filter.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    leadingIcon = if (selectedFilter == filter) {
+                        {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    } else null
                 )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = item.productInfo.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(filteredHistory) { item ->
+                val allergensFound = item.productInfo.labels.keys.filter { label ->
+                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                }
+                val isUnsafe = allergensFound.isNotEmpty()
+                val isDark = isSystemInDarkTheme()
+                val borderColor = if (isUnsafe) {
+                    if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+                } else {
+                    if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                }
+
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onItemClick(item) },
+                    border = BorderStroke(2.dp, borderColor),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (isUnsafe) {
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
                         Text(
-                            text = "Contains: ${allergensFound.joinToString(", ")}",
-                            color = borderColor,
-                            style = MaterialTheme.typography.bodyMedium
+                            text = item.productInfo.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    } else {
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (isUnsafe) {
+                            Text(
+                                text = "Contains: ${allergensFound.joinToString(", ")}",
+                                color = borderColor,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        } else {
+                            Text(
+                                text = "No selected allergens found",
+                                color = borderColor,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "No selected allergens found",
-                            color = borderColor,
-                            style = MaterialTheme.typography.bodySmall
+                            text = item.barcode,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = item.barcode,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
                 }
             }
         }
