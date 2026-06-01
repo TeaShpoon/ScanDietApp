@@ -250,7 +250,8 @@ data class DietaryNeed(
     val key: String,
     @StringRes val nameRes: Int,
     val isChecked: Boolean,
-    val labels: List<String>
+    val labels: List<String>,
+    val isAllergen: Boolean = true
 )
 
 val allNeeds = listOf(
@@ -265,8 +266,8 @@ val allNeeds = listOf(
     DietaryNeed("sesame", R.string.need_sesame, false, listOf("sesame")),
     DietaryNeed("vegetarian", R.string.need_vegetarian, false, listOf("meat", "fish")),
     DietaryNeed("vegan", R.string.need_vegan, false, listOf("meat", "fish", "egg", "lactose")),
-    DietaryNeed("sugar", R.string.need_sugar, false, listOf("sugar")),
-    DietaryNeed("sodium", R.string.need_sodium, false, listOf("sodium"))
+    DietaryNeed("sugar", R.string.need_sugar, false, listOf("sugar"), isAllergen = false),
+    DietaryNeed("sodium", R.string.need_sodium, false, listOf("sodium"), isAllergen = false)
 )
 
 @Composable
@@ -299,32 +300,65 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(dietaryNeeds) { need ->
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { updateNeed(need, !need.isChecked) },
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        val allergens = dietaryNeeds.filter { it.isAllergen }
+        val additives = dietaryNeeds.filter { !it.isAllergen }
+
+        if (additives.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Additives",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .fillMaxWidth()
-                ) {
-                    Checkbox(
-                        checked = need.isChecked,
-                        onCheckedChange = { isGranted -> updateNeed(need, isGranted) }
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = stringResource(need.nameRes),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
             }
+            items(additives) { need ->
+                DietaryNeedItem(need = need, onCheckedChange = { updateNeed(need, it) })
+            }
+        }
+
+        if (allergens.isNotEmpty()) {
+            item {
+                if (additives.isNotEmpty()) Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Allergens",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+            items(allergens) { need ->
+                DietaryNeedItem(need = need, onCheckedChange = { updateNeed(need, it) })
+            }
+        }
+    }
+}
+
+@Composable
+fun DietaryNeedItem(need: DietaryNeed, onCheckedChange: (Boolean) -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { onCheckedChange(!need.isChecked) },
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth()
+        ) {
+            Checkbox(
+                checked = need.isChecked,
+                onCheckedChange = onCheckedChange
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = stringResource(need.nameRes),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -351,23 +385,23 @@ fun HistoryScreen(
         val savedNeeds = dietaryPrefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
         allNeeds.filter { savedNeeds.contains(it.key) }
     }
-    val labelsToHighlight = remember(selectedNeeds) {
-        selectedNeeds.flatMap { it.labels }.toSet()
-    }
-
     var selectedFilter by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
 
-    val filteredHistory = remember(history, selectedFilter, labelsToHighlight) {
+    val filteredHistory = remember(history, selectedFilter, selectedNeeds) {
         when (selectedFilter) {
             HistoryFilter.ALL -> history
             HistoryFilter.SAFE -> history.filter { item ->
-                item.productInfo.labels.keys.none { label ->
-                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                selectedNeeds.none { need ->
+                    item.productInfo.labels.keys.any { label ->
+                        need.labels.any { it.equals(label, ignoreCase = true) }
+                    }
                 }
             }
             HistoryFilter.UNSAFE -> history.filter { item ->
-                item.productInfo.labels.keys.any { label ->
-                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                selectedNeeds.any { need ->
+                    item.productInfo.labels.keys.any { label ->
+                        need.labels.any { it.equals(label, ignoreCase = true) }
+                    }
                 }
             }
         }
@@ -404,15 +438,23 @@ fun HistoryScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(filteredHistory) { item ->
-                val allergensFound = item.productInfo.labels.keys.filter { label ->
-                    labelsToHighlight.any { it.equals(label, ignoreCase = true) }
+                val foundNeeds = selectedNeeds.filter { need ->
+                    item.productInfo.labels.keys.any { label ->
+                        need.labels.any { it.equals(label, ignoreCase = true) }
+                    }
                 }
-                val isUnsafe = allergensFound.isNotEmpty()
+                val foundAllergens = foundNeeds.filter { it.isAllergen }
+                val foundAdditives = foundNeeds.filter { !it.isAllergen }
+                
+                val hasAllergens = foundAllergens.isNotEmpty()
+                val hasAdditives = foundAdditives.isNotEmpty()
+                
                 val isDark = isSystemInDarkTheme()
-                val borderColor = if (isUnsafe) {
-                    if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
-                } else {
-                    if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
+                val borderColor = when {
+                    hasAllergens -> if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+                    hasAdditives -> warningColor
+                    else -> if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
                 }
 
                 OutlinedCard(
@@ -434,10 +476,13 @@ fun HistoryScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        if (isUnsafe) {
+                        if (hasAllergens || hasAdditives) {
+                            val allFoundLabels = item.productInfo.labels.keys.filter { label ->
+                                selectedNeeds.any { need -> need.labels.any { it.equals(label, ignoreCase = true) } }
+                            }
                             Text(
-                                text = "Contains: ${allergensFound.joinToString(", ")}",
-                                color = borderColor,
+                                text = "Contains: ${allFoundLabels.joinToString(", ")}",
+                                color = if (hasAllergens) borderColor else warningColor,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
@@ -760,10 +805,6 @@ fun InfoScreen(
         allNeeds.filter { savedNeeds.contains(it.key) }
     }
 
-    val labelsToHighlight = remember(selectedNeeds) {
-        selectedNeeds.flatMap { it.labels }.toSet()
-    }
-
     LaunchedEffect(barcode) {
         if (productInfo != null) return@LaunchedEffect
         val client = HttpClient(CIO)
@@ -812,13 +853,26 @@ fun InfoScreen(
                         val annotatedString = buildAnnotatedString {
                             append(productInfo.ingredients)
                             productInfo.labels.forEach { (label, spans) ->
-                                if (labelsToHighlight.any { it.equals(label, ignoreCase = true) }) {
+                                val matchingNeed = selectedNeeds.find { need -> 
+                                    need.labels.any { it.equals(label, ignoreCase = true) }
+                                }
+                                if (matchingNeed != null) {
+                                    val isDark = isSystemInDarkTheme()
+                                    val (bgColor, textColor) = if (matchingNeed.isAllergen) {
+                                        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                                    } else {
+                                        if (isDark) {
+                                            Color(0xFF574500) to Color(0xFFFFDF91) // M3 Dark Warning
+                                        } else {
+                                            Color(0xFFFFDF91) to Color(0xFF241A00) // M3 Light Warning
+                                        }
+                                    }
                                     spans.forEach { span ->
                                         if (span.size >= 2) {
                                             addStyle(
                                                 style = SpanStyle(
-                                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                                    background = MaterialTheme.colorScheme.errorContainer
+                                                    color = textColor,
+                                                    background = bgColor
                                                 ),
                                                 start = span[0],
                                                 end = span[1]
@@ -845,13 +899,20 @@ fun InfoScreen(
                 }
 
                 if (selectedNeeds.isNotEmpty()) {
-                    val foundLabels = productInfo.labels.keys.filter { k -> labelsToHighlight.any { it.equals(k, ignoreCase = true) } }
-                    val hasAllergens = foundLabels.isNotEmpty()
+                    val foundNeeds = selectedNeeds.filter { need ->
+                        productInfo.labels.keys.any { label -> 
+                            need.labels.any { it.equals(label, ignoreCase = true) }
+                        }
+                    }
+                    val foundAllergens = foundNeeds.filter { it.isAllergen }
+                    val foundAdditives = foundNeeds.filter { !it.isAllergen }
+                    
                     val isDark = isSystemInDarkTheme()
-                    val borderColor = if (hasAllergens) {
-                        if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
-                    } else {
-                        if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                    val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
+                    val borderColor = when {
+                        foundAllergens.isNotEmpty() -> if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+                        foundAdditives.isNotEmpty() -> warningColor
+                        else -> if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
                     }
 
                     OutlinedCard(
@@ -869,12 +930,16 @@ fun InfoScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             
-                            if (hasAllergens) {
+                            if (foundAllergens.isNotEmpty() || foundAdditives.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(4.dp))
+                                val alertText = buildString {
+                                    if (foundAllergens.isNotEmpty()) append("Alert: Matching allergens found and highlighted. ")
+                                    if (foundAdditives.isNotEmpty()) append("Note: Matching additives found and highlighted.")
+                                }
                                 Text(
-                                    text = "Alert: Matching allergens found and highlighted.",
+                                    text = alertText,
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = borderColor
+                                    color = if (foundAllergens.isNotEmpty()) borderColor else warningColor
                                 )
                             } else {
                                 Spacer(modifier = Modifier.height(4.dp))

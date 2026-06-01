@@ -16,8 +16,8 @@
     <string name="need_sesame">Sesame allergy</string>
     <string name="need_vegetarian">Vegetarian</string>
     <string name="need_vegan">Vegan</string>
-    <string name="need_sugar">Sugar limit</string>
-    <string name="need_sodium">Sodium limit</string>
+    <string name="need_sugar">Sugar</string>
+    <string name="need_sodium">Sodium</string>
 
     <string name="scan_prompt">Scan a barcode to see information here.</string>
     <string name="no_needs_selected">No dietary needs selected. Check them in the Dietary tab.</string>
