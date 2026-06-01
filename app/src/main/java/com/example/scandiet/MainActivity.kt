@@ -246,6 +246,10 @@ enum class HistoryFilter {
     ALL, SAFE, UNSAFE
 }
 
+enum class AdditiveFilterMode {
+    ANY, INCLUDE, EXCLUDE
+}
+
 data class DietaryNeed(
     val key: String,
     @StringRes val nameRes: Int,
@@ -385,24 +389,39 @@ fun HistoryScreen(
         val savedNeeds = dietaryPrefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
         allNeeds.filter { savedNeeds.contains(it.key) }
     }
+    val selectedAdditives = remember(selectedNeeds) { selectedNeeds.filter { !it.isAllergen } }
+    
     var selectedFilter by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
+    val additiveFilterModes = remember { 
+        mutableStateMapOf<String, AdditiveFilterMode>().apply {
+            selectedAdditives.forEach { put(it.key, AdditiveFilterMode.ANY) }
+        }
+    }
 
-    val filteredHistory = remember(history, selectedFilter, selectedNeeds) {
-        when (selectedFilter) {
-            HistoryFilter.ALL -> history
-            HistoryFilter.SAFE -> history.filter { item ->
-                selectedNeeds.none { need ->
-                    item.productInfo.labels.keys.any { label ->
-                        need.labels.any { it.equals(label, ignoreCase = true) }
-                    }
+    val filteredHistory = remember(history, selectedFilter, selectedNeeds, additiveFilterModes.toMap()) {
+        history.filter { item ->
+            val hasAllergen = selectedNeeds.filter { it.isAllergen }.any { need ->
+                item.productInfo.labels.keys.any { label ->
+                    need.labels.any { it.equals(label, ignoreCase = true) }
                 }
             }
-            HistoryFilter.UNSAFE -> history.filter { item ->
-                selectedNeeds.any { need ->
-                    item.productInfo.labels.keys.any { label ->
-                        need.labels.any { it.equals(label, ignoreCase = true) }
-                    }
+            
+            val primaryMatch = when (selectedFilter) {
+                HistoryFilter.ALL -> true
+                HistoryFilter.SAFE -> !hasAllergen
+                HistoryFilter.UNSAFE -> hasAllergen
+            }
+            
+            if (!primaryMatch) return@filter false
+            
+            // Apply additive filters
+            additiveFilterModes.all { (key, mode) ->
+                if (mode == AdditiveFilterMode.ANY) return@all true
+                val need = allNeeds.find { it.key == key } ?: return@all true
+                val hasThisAdditive = item.productInfo.labels.keys.any { label ->
+                    need.labels.any { it.equals(label, ignoreCase = true) }
                 }
+                if (mode == AdditiveFilterMode.INCLUDE) hasThisAdditive else !hasThisAdditive
             }
         }
     }
@@ -432,6 +451,46 @@ fun HistoryScreen(
             }
         }
 
+        if (selectedAdditives.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(selectedAdditives) { additive ->
+                    val mode = additiveFilterModes[additive.key] ?: AdditiveFilterMode.ANY
+                    FilterChip(
+                        selected = mode != AdditiveFilterMode.ANY,
+                        onClick = {
+                            val nextMode = when (mode) {
+                                AdditiveFilterMode.ANY -> AdditiveFilterMode.INCLUDE
+                                AdditiveFilterMode.INCLUDE -> AdditiveFilterMode.EXCLUDE
+                                AdditiveFilterMode.EXCLUDE -> AdditiveFilterMode.ANY
+                            }
+                            additiveFilterModes[additive.key] = nextMode
+                        },
+                        label = {
+                            val prefix = when (mode) {
+                                AdditiveFilterMode.ANY -> "All "
+                                AdditiveFilterMode.INCLUDE -> "With "
+                                AdditiveFilterMode.EXCLUDE -> "No "
+                            }
+                            Text(prefix + context.getString(additive.nameRes))
+                        },
+                        colors = if (mode != AdditiveFilterMode.ANY) {
+                            FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = if (mode == AdditiveFilterMode.INCLUDE) 
+                                    Color(0xFFFFDF91) else MaterialTheme.colorScheme.secondaryContainer,
+                                selectedLabelColor = if (mode == AdditiveFilterMode.INCLUDE)
+                                    Color(0xFF241A00) else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        } else FilterChipDefaults.filterChipColors()
+                    )
+                }
+            }
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(16.dp),
@@ -447,14 +506,12 @@ fun HistoryScreen(
                 val foundAdditives = foundNeeds.filter { !it.isAllergen }
                 
                 val hasAllergens = foundAllergens.isNotEmpty()
-                val hasAdditives = foundAdditives.isNotEmpty()
                 
                 val isDark = isSystemInDarkTheme()
-                val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
-                val borderColor = when {
-                    hasAllergens -> if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
-                    hasAdditives -> warningColor
-                    else -> if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                val borderColor = if (hasAllergens) {
+                    if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+                } else {
+                    if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
                 }
 
                 OutlinedCard(
@@ -476,13 +533,13 @@ fun HistoryScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        if (hasAllergens || hasAdditives) {
+                        if (hasAllergens || foundAdditives.isNotEmpty()) {
                             val allFoundLabels = item.productInfo.labels.keys.filter { label ->
                                 selectedNeeds.any { need -> need.labels.any { it.equals(label, ignoreCase = true) } }
                             }
                             Text(
                                 text = "Contains: ${allFoundLabels.joinToString(", ")}",
-                                color = if (hasAllergens) borderColor else warningColor,
+                                color = if (hasAllergens) borderColor else if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
