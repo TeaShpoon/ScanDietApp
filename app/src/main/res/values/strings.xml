@@ -19,6 +19,26 @@
     <string name="need_sugar">Sugar</string>
     <string name="need_sodium">Sodium</string>
 
+    <string name="filter_all">All</string>
+    <string name="filter_safe">Safe</string>
+    <string name="filter_unsafe">Unsafe</string>
+
+    <string name="filter_with_sugar">With Sugar</string>
+    <string name="filter_sugar_free">Sugar Free</string>
+    <string name="filter_with_sodium">With Sodium</string>
+    <string name="filter_sodium_free">Sodium Free</string>
+
+    <string name="section_ingredients">Ingredients</string>
+    <string name="section_additives">Additives</string>
+    <string name="section_allergens">Allergens</string>
+    <string name="section_dietary">Dietary Habits</string>
+
+    <string name="alert_allergens_found">Alert: Matching allergens found and highlighted.</string>
+    <string name="note_additives_found">Note: Matching additives found and highlighted.</string>
+    <string name="contains_prefix">Contains: %1$s</string>
+    <string name="barcode_label">Barcode: %1$s</string>
+    <string name="action_scan">Scan</string>
+
     <string name="scan_prompt">Scan a barcode to see information here.</string>
     <string name="no_needs_selected">No dietary needs selected. Check them in the Dietary tab.</string>
     <string name="active_filters">Active filters: %1$s</string>

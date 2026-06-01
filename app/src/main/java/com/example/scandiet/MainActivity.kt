@@ -9,11 +9,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.mlkit.vision.MlKitAnalyzer
-import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,11 +25,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,14 +45,13 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -62,40 +62,35 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toComposeRect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toComposeRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import androidx.annotation.StringRes
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.scandiet.ui.theme.ScanDietTheme
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -105,6 +100,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -112,26 +110,16 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.geometry.Rect
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import androidx.annotation.StringRes
 import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
-                // Permission is granted. Continue the action or workflow in your app.
+                Log.d("MainActivity", "Camera permission granted")
             } else {
-                // Explain to the user that the feature is unavailable because the
-                // feature requires a permission that the user has denied. At the
-                // same time, respect the user's decision. Don't link to system
-                // settings in an effort to convince the user to change their
-                // decision.
+                Log.d("MainActivity", "Camera permission denied")
             }
         }
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -204,12 +192,14 @@ fun ScanDietApp() {
                                 val historyJson = prefs.getString("history", "[]") ?: "[]"
                                 val history = try {
                                     jsonConfig.decodeFromString<List<HistoryItem>>(historyJson).toMutableList()
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
                                     mutableListOf()
                                 }
                                 history.removeAll { it.barcode == scannedBarcode!! }
                                 history.add(0, HistoryItem(scannedBarcode!!, loadedInfo))
-                                prefs.edit().putString("history", jsonConfig.encodeToString(history.take(50))).apply()
+                                prefs.edit {
+                                    putString("history", jsonConfig.encodeToString(history.take(50)))
+                                }
                             },
                             modifier = Modifier.padding(innerPadding)
                         )
@@ -225,7 +215,7 @@ fun ScanDietApp() {
 }
 
 enum class AppDestinations(
-    @StringRes val labelRes: Int,
+    @get:StringRes val labelRes: Int,
     val icon: ImageVector,
     val showInNavBar: Boolean = true
 ) {
@@ -252,26 +242,30 @@ enum class AdditiveFilterMode {
 
 data class DietaryNeed(
     val key: String,
-    @StringRes val nameRes: Int,
+    @get:StringRes val nameRes: Int,
     val isChecked: Boolean,
     val labels: List<String>,
-    val isAllergen: Boolean = true
+    val category: DietaryCategory
 )
 
+enum class DietaryCategory {
+    ALLERGEN, ADDITIVE, HABIT
+}
+
 val allNeeds = listOf(
-    DietaryNeed("gluten", R.string.need_gluten, false, listOf("gluten")),
-    DietaryNeed("lactose", R.string.need_lactose, false, listOf("lactose")),
-    DietaryNeed("tree_nut", R.string.need_tree_nut, false, listOf("tree_nut")),
-    DietaryNeed("peanut", R.string.need_peanut, false, listOf("peanut")),
-    DietaryNeed("soy", R.string.need_soy, false, listOf("soy")),
-    DietaryNeed("shellfish", R.string.need_shellfish, false, listOf("shellfish")),
-    DietaryNeed("egg", R.string.need_egg, false, listOf("egg")),
-    DietaryNeed("fish", R.string.need_fish, false, listOf("fish")),
-    DietaryNeed("sesame", R.string.need_sesame, false, listOf("sesame")),
-    DietaryNeed("vegetarian", R.string.need_vegetarian, false, listOf("meat", "fish")),
-    DietaryNeed("vegan", R.string.need_vegan, false, listOf("meat", "fish", "egg", "lactose")),
-    DietaryNeed("sugar", R.string.need_sugar, false, listOf("sugar"), isAllergen = false),
-    DietaryNeed("sodium", R.string.need_sodium, false, listOf("sodium"), isAllergen = false)
+    DietaryNeed("sugar", R.string.need_sugar, false, listOf("sugar"), DietaryCategory.ADDITIVE),
+    DietaryNeed("sodium", R.string.need_sodium, false, listOf("sodium"), DietaryCategory.ADDITIVE),
+    DietaryNeed("gluten", R.string.need_gluten, false, listOf("gluten"), DietaryCategory.ALLERGEN),
+    DietaryNeed("lactose", R.string.need_lactose, false, listOf("lactose"), DietaryCategory.ALLERGEN),
+    DietaryNeed("tree_nut", R.string.need_tree_nut, false, listOf("tree_nut"), DietaryCategory.ALLERGEN),
+    DietaryNeed("peanut", R.string.need_peanut, false, listOf("peanut"), DietaryCategory.ALLERGEN),
+    DietaryNeed("soy", R.string.need_soy, false, listOf("soy"), DietaryCategory.ALLERGEN),
+    DietaryNeed("shellfish", R.string.need_shellfish, false, listOf("shellfish"), DietaryCategory.ALLERGEN),
+    DietaryNeed("egg", R.string.need_egg, false, listOf("egg"), DietaryCategory.ALLERGEN),
+    DietaryNeed("fish", R.string.need_fish, false, listOf("fish"), DietaryCategory.ALLERGEN),
+    DietaryNeed("sesame", R.string.need_sesame, false, listOf("sesame"), DietaryCategory.ALLERGEN),
+    DietaryNeed("vegetarian", R.string.need_vegetarian, false, listOf("meat", "fish"), DietaryCategory.HABIT),
+    DietaryNeed("vegan", R.string.need_vegan, false, listOf("meat", "fish", "egg", "lactose"), DietaryCategory.HABIT)
 )
 
 @Composable
@@ -296,7 +290,7 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
         }
         dietaryNeeds = updatedNeeds
         val newSavedNeeds = updatedNeeds.filter { it.isChecked }.map { it.key }.toSet()
-        prefs.edit().putStringSet("dietary_needs", newSavedNeeds).apply()
+        prefs.edit { putStringSet("dietary_needs", newSavedNeeds) }
     }
 
     LazyColumn(
@@ -304,13 +298,14 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val allergens = dietaryNeeds.filter { it.isAllergen }
-        val additives = dietaryNeeds.filter { !it.isAllergen }
+        val additives = dietaryNeeds.filter { it.category == DietaryCategory.ADDITIVE }
+        val allergens = dietaryNeeds.filter { it.category == DietaryCategory.ALLERGEN }
+        val habits = dietaryNeeds.filter { it.category == DietaryCategory.HABIT }
 
         if (additives.isNotEmpty()) {
             item {
                 Text(
-                    text = "Additives",
+                    text = stringResource(R.string.section_additives),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 4.dp)
@@ -325,13 +320,28 @@ fun DietaryNeedsScreen(modifier: Modifier = Modifier) {
             item {
                 if (additives.isNotEmpty()) Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Allergens",
+                    text = stringResource(R.string.section_allergens),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
             items(allergens) { need ->
+                DietaryNeedItem(need = need, onCheckedChange = { updateNeed(need, it) })
+            }
+        }
+
+        if (habits.isNotEmpty()) {
+            item {
+                if (additives.isNotEmpty() || allergens.isNotEmpty()) Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.section_dietary),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+            items(habits) { need ->
                 DietaryNeedItem(need = need, onCheckedChange = { updateNeed(need, it) })
             }
         }
@@ -380,7 +390,7 @@ fun HistoryScreen(
         val json = prefs.getString("history", "[]") ?: "[]"
         try {
             jsonConfig.decodeFromString<List<HistoryItem>>(json)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -389,7 +399,7 @@ fun HistoryScreen(
         val savedNeeds = dietaryPrefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
         allNeeds.filter { savedNeeds.contains(it.key) }
     }
-    val selectedAdditives = remember(selectedNeeds) { selectedNeeds.filter { !it.isAllergen } }
+    val selectedAdditives = remember(selectedNeeds) { selectedNeeds.filter { it.category == DietaryCategory.ADDITIVE } }
     
     var selectedFilter by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
     val additiveFilterModes = remember { 
@@ -400,7 +410,7 @@ fun HistoryScreen(
 
     val filteredHistory = remember(history, selectedFilter, selectedNeeds, additiveFilterModes.toMap()) {
         history.filter { item ->
-            val hasAllergen = selectedNeeds.filter { it.isAllergen }.any { need ->
+            val hasAllergen = selectedNeeds.filter { it.category == DietaryCategory.ALLERGEN || it.category == DietaryCategory.HABIT }.any { need ->
                 item.productInfo.labels.keys.any { label ->
                     need.labels.any { it.equals(label, ignoreCase = true) }
                 }
@@ -430,14 +440,22 @@ fun HistoryScreen(
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
             items(HistoryFilter.entries.toTypedArray()) { filter ->
                 FilterChip(
                     selected = selectedFilter == filter,
                     onClick = { selectedFilter = filter },
-                    label = { Text(filter.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    label = { 
+                        val text = when(filter) {
+                            HistoryFilter.ALL -> stringResource(R.string.filter_all)
+                            HistoryFilter.SAFE -> stringResource(R.string.filter_safe)
+                            HistoryFilter.UNSAFE -> stringResource(R.string.filter_unsafe)
+                        }
+                        Text(text)
+                    },
                     leadingIcon = if (selectedFilter == filter) {
                         {
                             Icon(
@@ -449,15 +467,8 @@ fun HistoryScreen(
                     } else null
                 )
             }
-        }
 
-        if (selectedAdditives.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            if (selectedAdditives.isNotEmpty()) {
                 items(selectedAdditives) { additive ->
                     val mode = additiveFilterModes[additive.key] ?: AdditiveFilterMode.ANY
                     FilterChip(
@@ -471,21 +482,30 @@ fun HistoryScreen(
                             additiveFilterModes[additive.key] = nextMode
                         },
                         label = {
-                            val prefix = when (mode) {
-                                AdditiveFilterMode.ANY -> "All "
-                                AdditiveFilterMode.INCLUDE -> "With "
-                                AdditiveFilterMode.EXCLUDE -> "No "
+                            val text = when (additive.key) {
+                                "sugar" -> when (mode) {
+                                    AdditiveFilterMode.ANY -> context.getString(R.string.need_sugar)
+                                    AdditiveFilterMode.INCLUDE -> context.getString(R.string.filter_with_sugar)
+                                    AdditiveFilterMode.EXCLUDE -> context.getString(R.string.filter_sugar_free)
+                                }
+                                "sodium" -> when (mode) {
+                                    AdditiveFilterMode.ANY -> context.getString(R.string.need_sodium)
+                                    AdditiveFilterMode.INCLUDE -> context.getString(R.string.filter_with_sodium)
+                                    AdditiveFilterMode.EXCLUDE -> context.getString(R.string.filter_sodium_free)
+                                }
+                                else -> context.getString(additive.nameRes)
                             }
-                            Text(prefix + context.getString(additive.nameRes))
+                            Text(text)
                         },
-                        colors = if (mode != AdditiveFilterMode.ANY) {
-                            FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = if (mode == AdditiveFilterMode.INCLUDE) 
-                                    Color(0xFFFFDF91) else MaterialTheme.colorScheme.secondaryContainer,
-                                selectedLabelColor = if (mode == AdditiveFilterMode.INCLUDE)
-                                    Color(0xFF241A00) else MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        } else FilterChipDefaults.filterChipColors()
+                        leadingIcon = if (mode != AdditiveFilterMode.ANY) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                )
+                            }
+                        } else null
                     )
                 }
             }
@@ -502,8 +522,8 @@ fun HistoryScreen(
                         need.labels.any { it.equals(label, ignoreCase = true) }
                     }
                 }
-                val foundAllergens = foundNeeds.filter { it.isAllergen }
-                val foundAdditives = foundNeeds.filter { !it.isAllergen }
+                val foundAllergens = foundNeeds.filter { it.category == DietaryCategory.ALLERGEN || it.category == DietaryCategory.HABIT }
+                val foundAdditives = foundNeeds.filter { it.category == DietaryCategory.ADDITIVE }
                 
                 val hasAllergens = foundAllergens.isNotEmpty()
                 
@@ -538,13 +558,13 @@ fun HistoryScreen(
                                 selectedNeeds.any { need -> need.labels.any { it.equals(label, ignoreCase = true) } }
                             }
                             Text(
-                                text = "Contains: ${allFoundLabels.joinToString(", ")}",
+                                text = stringResource(R.string.contains_prefix, allFoundLabels.joinToString(", ")),
                                 color = if (hasAllergens) borderColor else if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
                             Text(
-                                text = "No selected allergens found",
+                                text = stringResource(R.string.no_matches_found),
                                 color = borderColor,
                                 style = MaterialTheme.typography.bodySmall
                             )
@@ -630,7 +650,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
         ContextCompat.getMainExecutor(context),
         MlKitAnalyzer(
             listOf(barcodeScanner),
-            COORDINATE_SYSTEM_VIEW_REFERENCED,
+            ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED,
             ContextCompat.getMainExecutor(context)
         ) { result: MlKitAnalyzer.Result ->
             detectedBarcodes = result.getValue(barcodeScanner) ?: emptyList()
@@ -822,7 +842,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Scan",
+                    contentDescription = stringResource(R.string.action_scan),
                     modifier = Modifier.size(36.dp),
                     tint = if (selectedBarcodeValue != null)
                         MaterialTheme.colorScheme.onPrimary
@@ -901,7 +921,7 @@ fun InfoScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Ingredients",
+                            text = stringResource(R.string.section_ingredients),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -915,7 +935,7 @@ fun InfoScreen(
                                 }
                                 if (matchingNeed != null) {
                                     val isDark = isSystemInDarkTheme()
-                                    val (bgColor, textColor) = if (matchingNeed.isAllergen) {
+                                    val (bgColor, textColor) = if (matchingNeed.category == DietaryCategory.ALLERGEN || matchingNeed.category == DietaryCategory.HABIT) {
                                         MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
                                     } else {
                                         if (isDark) {
@@ -961,8 +981,8 @@ fun InfoScreen(
                             need.labels.any { it.equals(label, ignoreCase = true) }
                         }
                     }
-                    val foundAllergens = foundNeeds.filter { it.isAllergen }
-                    val foundAdditives = foundNeeds.filter { !it.isAllergen }
+                    val foundAllergens = foundNeeds.filter { it.category == DietaryCategory.ALLERGEN || it.category == DietaryCategory.HABIT }
+                    val foundAdditives = foundNeeds.filter { it.category == DietaryCategory.ADDITIVE }
                     
                     val isDark = isSystemInDarkTheme()
                     val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
@@ -990,8 +1010,8 @@ fun InfoScreen(
                             if (foundAllergens.isNotEmpty() || foundAdditives.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 val alertText = buildString {
-                                    if (foundAllergens.isNotEmpty()) append("Alert: Matching allergens found and highlighted. ")
-                                    if (foundAdditives.isNotEmpty()) append("Note: Matching additives found and highlighted.")
+                                    if (foundAllergens.isNotEmpty()) append(stringResource(R.string.alert_allergens_found) + " ")
+                                    if (foundAdditives.isNotEmpty()) append(stringResource(R.string.note_additives_found))
                                 }
                                 Text(
                                     text = alertText,
@@ -1018,7 +1038,7 @@ fun InfoScreen(
                 }
 
                 Text(
-                    text = "Barcode: $barcode",
+                    text = stringResource(R.string.barcode_label, barcode),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(top = 8.dp)

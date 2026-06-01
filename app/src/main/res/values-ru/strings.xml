@@ -1,26 +1,48 @@
 <resources>
+    <string name="app_name">ScanDiet</string>
     <string name="nav_dietary">Диета</string>
     <string name="nav_scanner">Сканер</string>
     <string name="nav_info">Инфо</string>
+    <string name="nav_history">История</string>
 
-    <string name="need_gluten">Непереносимость глютена</string>
-    <string name="need_lactose">Непереносимость лактозы</string>
-    <string name="need_tree_nut">Аллергия на орехи</string>
-    <string name="need_peanut">Аллергия на арахис</string>
-    <string name="need_soy">Аллергия на сою</string>
-    <string name="need_shellfish">Аллергия на моллюсков</string>
-    <string name="need_egg">Аллергия на яйца</string>
-    <string name="need_fish">Аллергия на рыбу</string>
-    <string name="need_sesame">Аллергия на кунжут</string>
+    <string name="need_gluten">Глютен</string>
+    <string name="need_lactose">Лактоза</string>
+    <string name="need_tree_nut">Орехи</string>
+    <string name="need_peanut">Арахис</string>
+    <string name="need_soy">Соя</string>
+    <string name="need_shellfish">Моллюски</string>
+    <string name="need_egg">Яйца</string>
+    <string name="need_fish">Рыба</string>
+    <string name="need_sesame">Кунжут</string>
     <string name="need_vegetarian">Вегетарианство</string>
     <string name="need_vegan">Веганство</string>
-    <string name="need_sugar">Ограничение сахара</string>
-    <string name="need_sodium">Ограничение соли</string>
+    <string name="need_sugar">Сахар</string>
+    <string name="need_sodium">Соль (Натрий)</string>
+
+    <string name="filter_all">Все</string>
+    <string name="filter_safe">Безопасно</string>
+    <string name="filter_unsafe">Опасно</string>
+
+    <string name="filter_with_sugar">С сахаром</string>
+    <string name="filter_sugar_free">Без сахара</string>
+    <string name="filter_with_sodium">С солью</string>
+    <string name="filter_sodium_free">Без соли</string>
+
+    <string name="section_ingredients">Ингредиенты</string>
+    <string name="section_additives">Добавки</string>
+    <string name="section_allergens">Аллергены</string>
+    <string name="section_dietary">Тип питания</string>
+
+    <string name="alert_allergens_found">Внимание: найдены и выделены аллергены.</string>
+    <string name="note_additives_found">Заметка: найдены и выделены добавки.</string>
+    <string name="contains_prefix">Содержит: %1$s</string>
+    <string name="barcode_label">Штрих-код: %1$s</string>
+    <string name="action_scan">Сканировать</string>
 
     <string name="scan_prompt">Отсканируйте штрих-код, чтобы увидеть информацию.</string>
     <string name="no_needs_selected">Диетические потребности не выбраны. Выберите их во вкладке Диета.</string>
     <string name="active_filters">Активные фильтры: %1$s</string>
-    <string name="no_matches_found">В этом продукте не найдено подходящих аллергенов.</string>
+    <string name="no_matches_found">В этом продукте не найдено выбранных аллергенов.</string>
     <string name="loading">Загрузка…</string>
     <string name="error_prefix">Ошибка: %1$s</string>
     <string name="unknown_error">Неизвестная ошибка</string>
