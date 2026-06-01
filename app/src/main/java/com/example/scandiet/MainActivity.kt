@@ -502,7 +502,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
 
         LaunchedEffect(candidate?.rawValue) {
             if (candidate?.rawValue != selectedBarcodeValue) {
-                delay(500)
+                delay(250)
                 selectedBarcodeValue = candidate?.rawValue
             }
         }
