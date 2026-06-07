@@ -52,6 +52,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -530,11 +531,15 @@ fun HistoryScreen(
                 val hasAllergens = foundAllergens.isNotEmpty()
                 
                 val isDark = isSystemInDarkTheme()
-                val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
+                // M3-aligned but vibrant colors for status
+                val allergenColor = if (isDark) Color(0xFFD32F2F) else Color(0xFFB71C1C)
+                val warningColor = Color(0xFFFBC02D)
+                val safeColor = if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+                
                 val statusColor = when {
-                    hasAllergens -> MaterialTheme.colorScheme.error
+                    hasAllergens -> allergenColor
                     foundAdditives.isNotEmpty() -> warningColor
-                    else -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+                    else -> safeColor
                 }
 
                 ElevatedCard(
@@ -561,7 +566,7 @@ fun HistoryScreen(
                             val translatedFoundLabels = foundNeeds.map { stringResource(it.nameRes) }
                             Text(
                                 text = stringResource(R.string.contains_prefix, translatedFoundLabels.joinToString(", ")),
-                                color = if (hasAllergens) statusColor else warningColor,
+                                color = statusColor,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
@@ -930,14 +935,13 @@ fun InfoScreen(
                                 }
                                 if (matchingNeed != null) {
                                     val isDark = isSystemInDarkTheme()
+                                    val allergenColor = if (isDark) Color(0xFFD32F2F) else Color(0xFFB71C1C)
+                                    val warningColor = Color(0xFFFBC02D)
+                                    
                                     val (bgColor, textColor) = if (matchingNeed.category == DietaryCategory.ALLERGEN || matchingNeed.category == DietaryCategory.HABIT) {
-                                        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                                        allergenColor to (if (isDark) Color.Black else Color.White)
                                     } else {
-                                        if (isDark) {
-                                            Color(0xFFFFDF91) to Color(0xFF241A00) // M3 Tonal Yellow for Dark
-                                        } else {
-                                            Color(0xFFFFE082) to Color(0xFF241A00) // M3 Tonal Yellow for Light
-                                        }
+                                        warningColor to Color.Black
                                     }
                                     spans.forEach { span ->
                                         if (span.size >= 2) {
@@ -1005,47 +1009,47 @@ fun InfoScreen(
                     val foundAdditives = foundNeeds.filter { it.category == DietaryCategory.ADDITIVE }
                     
                     val isDark = isSystemInDarkTheme()
-                    val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
-                    val borderColor = when {
-                        foundAllergens.isNotEmpty() -> MaterialTheme.colorScheme.error
-                        foundAdditives.isNotEmpty() -> warningColor
-                        else -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
-                    }
+                    val allergenColor = if (isDark) Color(0xFFD32F2F) else Color(0xFFB71C1C)
+                    val warningColor = Color(0xFFFBC02D)
+                    val safeColor = if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
 
-                    OutlinedCard(
+                    ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(2.dp, borderColor),
-                        colors = CardDefaults.outlinedCardColors(
+                        colors = CardDefaults.elevatedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
+                            if (foundAllergens.isNotEmpty() || foundAdditives.isNotEmpty()) {
+                                if (foundAllergens.isNotEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.alert_allergens_found),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = allergenColor
+                                    )
+                                } else {
+                                    Text(
+                                        text = stringResource(R.string.note_additives_found),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = warningColor
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.no_matches_found),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = safeColor
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
                             val activeFiltersText = selectedNeeds.joinToString(", ") { context.getString(it.nameRes) }
                             Text(
                                 text = stringResource(R.string.active_filters, activeFiltersText),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            
-                            if (foundAllergens.isNotEmpty() || foundAdditives.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                val alertText = buildString {
-                                    if (foundAllergens.isNotEmpty()) append(stringResource(R.string.alert_allergens_found) + " ")
-                                    if (foundAdditives.isNotEmpty()) append(stringResource(R.string.note_additives_found))
-                                }
-                                Text(
-                                    text = alertText,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = if (foundAllergens.isNotEmpty()) borderColor else warningColor
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = stringResource(R.string.no_matches_found),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = borderColor
-                                )
-                            }
                         }
                     }
                 } else {
