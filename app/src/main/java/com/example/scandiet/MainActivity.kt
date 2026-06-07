@@ -549,7 +549,9 @@ fun HistoryScreen(
                     ) {
                         Text(
                             text = item.productInfo.name,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 20.sp
+                            ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
@@ -569,13 +571,6 @@ fun HistoryScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = item.barcode,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
                     }
                 }
             }
@@ -1061,13 +1056,6 @@ fun InfoScreen(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
-
-                Text(
-                    text = stringResource(R.string.barcode_label, barcode),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
             error != null -> {
                 Card(
