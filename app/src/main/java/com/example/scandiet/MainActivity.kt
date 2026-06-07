@@ -554,11 +554,9 @@ fun HistoryScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         if (hasAllergens || foundAdditives.isNotEmpty()) {
-                            val allFoundLabels = item.productInfo.labels.keys.filter { label ->
-                                selectedNeeds.any { need -> need.labels.any { it.equals(label, ignoreCase = true) } }
-                            }
+                            val translatedFoundLabels = foundNeeds.map { stringResource(it.nameRes) }
                             Text(
-                                text = stringResource(R.string.contains_prefix, allFoundLabels.joinToString(", ")),
+                                text = stringResource(R.string.contains_prefix, translatedFoundLabels.joinToString(", ")),
                                 color = if (hasAllergens) borderColor else if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900),
                                 style = MaterialTheme.typography.bodyMedium
                             )
