@@ -107,6 +107,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
@@ -528,10 +530,11 @@ fun HistoryScreen(
                 val hasAllergens = foundAllergens.isNotEmpty()
                 
                 val isDark = isSystemInDarkTheme()
-                val borderColor = if (hasAllergens) {
-                    if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
-                } else {
-                    if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
+                val borderColor = when {
+                    hasAllergens -> MaterialTheme.colorScheme.error
+                    foundAdditives.isNotEmpty() -> warningColor
+                    else -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
                 }
 
                 OutlinedCard(
@@ -557,7 +560,7 @@ fun HistoryScreen(
                             val translatedFoundLabels = foundNeeds.map { stringResource(it.nameRes) }
                             Text(
                                 text = stringResource(R.string.contains_prefix, translatedFoundLabels.joinToString(", ")),
-                                color = if (hasAllergens) borderColor else if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900),
+                                color = if (hasAllergens) borderColor else warningColor,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
@@ -937,24 +940,21 @@ fun InfoScreen(
                                         MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
                                     } else {
                                         if (isDark) {
-                                            Color(0xFF574500) to Color(0xFFFFDF91) // M3 Dark Warning
+                                            Color(0xFFFFDF91) to Color(0xFF241A00) // M3 Tonal Yellow for Dark
                                         } else {
-                                            Color(0xFFFFDF91) to Color(0xFF241A00) // M3 Light Warning
+                                            Color(0xFFFFE082) to Color(0xFF241A00) // M3 Tonal Yellow for Light
                                         }
                                     }
                                     spans.forEach { span ->
                                         if (span.size >= 2) {
                                             addStyle(
-                                                style = SpanStyle(
-                                                    color = textColor,
-                                                    background = bgColor
-                                                ),
+                                                style = SpanStyle(color = textColor),
                                                 start = span[0],
                                                 end = span[1]
                                             )
                                             addStringAnnotation(
-                                                tag = "HIGHLIGHT",
-                                                annotation = label,
+                                                tag = "BG_COLOR",
+                                                annotation = bgColor.value.toString(),
                                                 start = span[0],
                                                 end = span[1]
                                             )
@@ -964,11 +964,39 @@ fun InfoScreen(
                             }
                         }
 
+                        var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                         Text(
                             text = annotatedString,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                lineHeight = 32.sp
-                            )
+                                lineHeight = 22.sp
+                            ),
+                            onTextLayout = { textLayoutResult = it },
+                            modifier = Modifier.drawBehind {
+                                textLayoutResult?.let { layoutResult ->
+                                    annotatedString.getStringAnnotations("BG_COLOR", 0, annotatedString.length)
+                                        .forEach { annotation ->
+                                            val color = Color(annotation.item.toULong())
+                                            val start = annotation.start
+                                            val end = annotation.end
+                                            val startLine = layoutResult.getLineForOffset(start)
+                                            val endLine = layoutResult.getLineForOffset(end)
+                                            for (line in startLine..endLine) {
+                                                val lineStart = layoutResult.getLineStart(line)
+                                                val lineEnd = layoutResult.getLineEnd(line)
+                                                val left = layoutResult.getHorizontalPosition(maxOf(start, lineStart), true)
+                                                val right = layoutResult.getHorizontalPosition(minOf(end, lineEnd), true)
+                                                val top = layoutResult.getLineTop(line)
+                                                val bottom = layoutResult.getLineBottom(line)
+                                                drawRoundRect(
+                                                    color = color,
+                                                    topLeft = Offset(minOf(left, right), top + 1.dp.toPx()),
+                                                    size = Size(Math.abs(right - left), bottom - top - 2.dp.toPx()),
+                                                    cornerRadius = CornerRadius(4.dp.toPx())
+                                                )
+                                            }
+                                        }
+                                }
+                            }
                         )
                     }
                 }
@@ -985,9 +1013,9 @@ fun InfoScreen(
                     val isDark = isSystemInDarkTheme()
                     val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
                     val borderColor = when {
-                        foundAllergens.isNotEmpty() -> if (isDark) Color(0xFFE57373) else Color(0xFFD32F2F)
+                        foundAllergens.isNotEmpty() -> MaterialTheme.colorScheme.error
                         foundAdditives.isNotEmpty() -> warningColor
-                        else -> if (isDark) Color(0xFF4CAF50) else Color(0xFF2E7D32)
+                        else -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
                     }
 
                     OutlinedCard(
