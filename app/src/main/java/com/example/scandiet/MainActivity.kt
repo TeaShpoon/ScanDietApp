@@ -531,17 +531,16 @@ fun HistoryScreen(
                 
                 val isDark = isSystemInDarkTheme()
                 val warningColor = if (isDark) Color(0xFFFFDF91) else Color(0xFF7A5900)
-                val borderColor = when {
+                val statusColor = when {
                     hasAllergens -> MaterialTheme.colorScheme.error
                     foundAdditives.isNotEmpty() -> warningColor
                     else -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
                 }
 
-                OutlinedCard(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { onItemClick(item) },
-                    border = BorderStroke(2.dp, borderColor),
-                    colors = CardDefaults.outlinedCardColors(
+                    colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     )
                 ) {
@@ -560,13 +559,13 @@ fun HistoryScreen(
                             val translatedFoundLabels = foundNeeds.map { stringResource(it.nameRes) }
                             Text(
                                 text = stringResource(R.string.contains_prefix, translatedFoundLabels.joinToString(", ")),
-                                color = if (hasAllergens) borderColor else warningColor,
+                                color = if (hasAllergens) statusColor else warningColor,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
                             Text(
                                 text = stringResource(R.string.no_matches_found),
-                                color = borderColor,
+                                color = statusColor,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
