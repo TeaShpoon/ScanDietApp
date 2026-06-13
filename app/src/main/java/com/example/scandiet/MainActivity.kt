@@ -117,6 +117,7 @@ import androidx.annotation.StringRes
 import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
+    // Лаунчер для запроса разрешения на использование камеры
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
@@ -127,6 +128,7 @@ class MainActivity : ComponentActivity() {
         }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Проверяем и запрашиваем разрешение на камеру при запуске
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -142,11 +144,13 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun ScanDietApp() {
+    // Состояние навигации и текущего отсканированного продукта
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.DIETARY) }
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     var productInfo by remember { mutableStateOf<ProductInfo?>(null) }
 
     val context = LocalContext.current
+    // Основной каркас приложения с боковой/нижней навигацией
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             AppDestinations.entries.filter { it.showInNavBar }.forEach {
@@ -167,6 +171,7 @@ fun ScanDietApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            // Отрисовка экрана в зависимости от выбранного пункта меню
             when (currentDestination) {
                 AppDestinations.DIETARY -> DietaryNeedsScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.SCANNER -> ScannerScreen(modifier = Modifier.padding(innerPadding)) {
@@ -191,6 +196,7 @@ fun ScanDietApp() {
                             productInfo = productInfo,
                             onProductInfoLoaded = { loadedInfo ->
                                 productInfo = loadedInfo
+                                // Сохранение в историю при успешной загрузке
                                 val prefs = context.getSharedPreferences("history_prefs", Context.MODE_PRIVATE)
                                 val historyJson = prefs.getString("history", "[]") ?: "[]"
                                 val history = try {
@@ -632,6 +638,7 @@ class BarcodeUiState(
 fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    // Контроллер камеры CameraX
     val cameraController = remember { LifecycleCameraController(context) }
     val scope = rememberCoroutineScope()
 
@@ -639,6 +646,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
     val activeBarcodes = remember { mutableStateMapOf<String, BarcodeUiState>() }
     var selectedBarcodeValue by remember { mutableStateOf<String?>(null) }
 
+    // Настройка сканера ML Kit
     val options = remember {
         BarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
@@ -646,6 +654,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
     }
     val barcodeScanner = remember { BarcodeScanning.getClient(options) }
 
+    // Подключение анализатора изображений к контроллеру камеры
     cameraController.setImageAnalysisAnalyzer(
         ContextCompat.getMainExecutor(context),
         MlKitAnalyzer(
@@ -663,7 +672,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
         val centerX = constraints.maxWidth / 2f
         val centerY = constraints.maxHeight / 2f
 
-        // Selection stability logic
+        // Логика выбора "приоритетного" штрих-кода (ближайшего к центру)
         val candidate = remember(detectedBarcodes) {
             detectedBarcodes.minByOrNull { barcode ->
                 barcode.boundingBox?.let { box ->
@@ -676,18 +685,17 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
 
         LaunchedEffect(candidate?.rawValue) {
             if (candidate?.rawValue != selectedBarcodeValue) {
-                delay(250)
+                delay(250) // Небольшая задержка для стабилизации выбора
                 selectedBarcodeValue = candidate?.rawValue
             }
         }
 
-        // Bounding box animation and throttling logic
+        // Анимация рамок вокруг штрих-кодов
         LaunchedEffect(Unit) {
             while (true) {
                 val now = System.currentTimeMillis()
                 val currentDetected = detectedBarcodes
 
-                // Update existing or add new
                 currentDetected.forEach { barcode ->
                     val value = barcode.rawValue ?: return@forEach
                     val rect = barcode.boundingBox?.toComposeRect() ?: return@forEach
@@ -702,7 +710,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
                     }
                 }
 
-                // Clean up old barcodes
+                // Удаление рамок для штрих-кодов, которые исчезли из поля зрения
                 val toRemove = activeBarcodes.entries.filter {
                     now - it.value.lastSeen > 300 && !it.value.isFadingOut
                 }
@@ -712,10 +720,11 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
                     }
                 }
 
-                delay(40) // Update target positions at ~25fps for better responsiveness
+                delay(40)
             }
         }
 
+        // Отображение превью камеры
         AndroidView(
             factory = { context ->
                 PreviewView(context).apply {
@@ -725,7 +734,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             modifier = Modifier.fillMaxSize()
         )
 
-        // Subtle scanner guides (rounded corners)
+        // Отрисовка направляющих углов сканера
         Canvas(modifier = Modifier.fillMaxSize()) {
             val boxSize = 250.dp.toPx()
             val left = (size.width - boxSize) / 2
@@ -737,7 +746,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             val radius = 24.dp.toPx()
             val arcSize = Size(radius * 2, radius * 2)
 
-            // Top-left
+            // Верхний левый угол
             drawArc(
                 color = color,
                 startAngle = 180f,
@@ -748,7 +757,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )
             
-            // Top-right
+            // Верхний правый угол
             drawArc(
                 color = color,
                 startAngle = 270f,
@@ -759,7 +768,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )
             
-            // Bottom-right
+            // Нижний правый угол
             drawArc(
                 color = color,
                 startAngle = 0f,
@@ -770,7 +779,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )
             
-            // Bottom-left
+            // Нижний левый угол
             drawArc(
                 color = color,
                 startAngle = 90f,
@@ -782,6 +791,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             )
         }
 
+        // Отрисовка анимированных рамок штрих-кодов
         Canvas(modifier = Modifier.fillMaxSize()) {
             activeBarcodes.values.forEach { state ->
                 val isPrioritized = state.value == selectedBarcodeValue
@@ -796,7 +806,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             }
         }
 
-        // Top barcode "pillow"
+        // Плашка с номером выбранного штрих-кода
         selectedBarcodeValue?.let { barcodeValue ->
             Surface(
                 modifier = Modifier
@@ -815,7 +825,7 @@ fun ScannerScreen(modifier: Modifier = Modifier, onBarcodeScanned: (String) -> U
             }
         }
 
-        // Bottom "Shutter" button with background
+        // Кнопка подтверждения сканирования
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -876,12 +886,14 @@ fun InfoScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
+    // Получаем список выбранных диетических потребностей
     val selectedNeeds = remember(barcode, productInfo) {
         val prefs = context.getSharedPreferences("dietary_prefs", Context.MODE_PRIVATE)
         val savedNeeds = prefs.getStringSet("dietary_needs", emptySet()) ?: emptySet()
         allNeeds.filter { savedNeeds.contains(it.key) }
     }
 
+    // Загрузка данных о продукте из API при изменении штрих-кода
     LaunchedEffect(barcode) {
         if (productInfo != null) return@LaunchedEffect
         val client = HttpClient(CIO)
@@ -913,6 +925,7 @@ fun InfoScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
 
+                // Карточка с ингредиентами и их подсветкой
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -927,6 +940,7 @@ fun InfoScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         
+                        // Создание аннотированной строки для подсветки опасных ингредиентов
                         val annotatedString = buildAnnotatedString {
                             append(productInfo.ingredients)
                             productInfo.labels.forEach { (label, spans) ->
@@ -962,6 +976,7 @@ fun InfoScreen(
                             }
                         }
 
+                        // Отрисовка фона для подсвеченных слов через Canvas (drawBehind)
                         var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                         Text(
                             text = annotatedString,
@@ -999,6 +1014,7 @@ fun InfoScreen(
                     }
                 }
 
+                // Резюме по найденным соответствиям диетическим настройкам
                 if (selectedNeeds.isNotEmpty()) {
                     val foundNeeds = selectedNeeds.filter { need ->
                         productInfo.labels.keys.any { label -> 
